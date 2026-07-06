@@ -14,7 +14,7 @@ description: Architecture reference for this project — Controller/Service/Repo
 - Response: return the DTO directly unless the project has a common response wrapper (see "Exception Handling" below for how to check)
 
 ```kotlin
-fun getStudent(): StudentResDto = queryStudentService.execute(id)
+fun getStudent(id: Long): StudentResDto = queryStudentService.execute(id)
 ```
 
 ### Service
