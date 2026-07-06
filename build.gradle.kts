@@ -21,6 +21,7 @@ repositories {
 
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 	implementation("org.springframework.boot:spring-boot-starter-security")
@@ -49,6 +50,8 @@ dependencies {
 
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17")
 
+	developmentOnly("org.springframework.boot:spring-boot-docker-compose")
+
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
 	testImplementation("org.springframework.security:spring-security-test")
@@ -75,4 +78,20 @@ allOpen {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	val envFile = file(".env")
+
+	if (envFile.exists()) {
+		envFile.readLines()
+			.map(String::trim)
+			.filter { it.isNotEmpty() && !it.startsWith("#") }
+			.forEach { line ->
+				val parts = line.split("=", limit = 2)
+				if (parts.size == 2) {
+					environment(parts[0].trim(), parts[1].trim())
+				}
+			}
+	}
 }
