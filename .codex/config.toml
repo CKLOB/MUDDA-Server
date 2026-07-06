@@ -1,0 +1,5 @@
+# 훅 실행(.codex/hooks.json)을 켜는 최소 플래그만 커밋한다.
+# model, model_reasoning_effort, web_search, mcp_servers 등 개인화 설정은
+# 각자의 전역 ~/.codex/config.toml 에서 관리한다 (저장소에 강제하지 않음).
+[features]
+hooks = true
