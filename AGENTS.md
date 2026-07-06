@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file defines execution instructions for autonomous coding agents (e.g. Codex) working in the **Anchor (Location-Locked Time Capsule)** repo. For design rationale and collaboration principles, see `CLAUDE.md`. This document focuses on "how to actually build/test/commit."
+This file defines execution instructions for autonomous coding agents (e.g. Codex) working in the **MUDDA (Location-Locked Time Capsule)** repo. For design rationale and collaboration principles, see `CLAUDE.md`. This document focuses on "how to actually build/test/commit."
 
 ## Package Structure
 
@@ -101,21 +101,21 @@ Agents must run `./gradlew test` after any code change and confirm the result. N
 
 ## Git / Commit Convention
 
-Format: `{keyword}: {message}`
+Format: `{type}: #<issue-number> :: {message}` (see `.claude/skills/git-commit/SKILL.md` for the full flow).
 
 | Type | Meaning |
 | --- | --- |
-| add | Added new code or files |
-| update | Modified existing code |
+| feat | Added new functionality |
 | fix | Fixed a bug |
-| delete | Removed something |
+| chore | Modified existing code/config without behavior change |
+| ci | CI/CD workflow changes |
 | docs | Updated documentation |
+| refactor | Code refactoring |
 | test | Added or modified tests |
-| merge | Merged a branch |
-| init | Project initialization |
 
-- Example: `add: create capsule API`, `fix: geofence radius calculation bug`
-- Branch naming: name clearly by domain, e.g. `feature/capsule-creation`, `fix/geofence-radius-bug`.
+- Example: `feat: #12 :: add capsule creation api`, `fix: #34 :: fix geofence radius calculation bug`
+- Omit `#<issue-number> ::` entirely only for trivial changes with no tracking issue.
+- Branch naming: `<type>/<issue-number>-<kebab-case-description>`, e.g. `feature/12-capsule-creation`, `fix/34-geofence-radius-bug`.
 
 ## Do Not
 

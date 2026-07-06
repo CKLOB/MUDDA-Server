@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file defines the guidelines Claude (including Claude Code) must follow when working on the **Anchor (Location-Locked Time Capsule)** project.
+This file defines the guidelines Claude (including Claude Code) must follow when working on the **MUDDA (Location-Locked Time Capsule)** project.
 
 ## Project Overview
 
@@ -41,7 +41,7 @@ A message capsule service that can only be unlocked by physically visiting a spe
 - Null safety: never expose platform types; use nullable only when it carries genuine domain meaning.
 - Encapsulate spatial queries (`ST_DWithin`, `ST_Distance`, etc.) in the repository layer — never expose raw SQL/JPQL in the service layer.
 - Package structure is fixed as `domain/{domainName}/presentation·application·domain·infrastructure` + `global/`. See `AGENTS.md` for detailed naming rules and the Service `execute()` convention.
-- Commit messages: `{keyword}: message` format (add/update/fix/delete/docs/test/merge/init). See `AGENTS.md` for details.
+- Commit messages: `{type}: #<issue-number> :: message` format (feat/fix/chore/ci/docs/refactor/test). See `AGENTS.md` for details.
 
 ## Security Notes
 
