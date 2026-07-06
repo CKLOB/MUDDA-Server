@@ -8,7 +8,8 @@ MODULES_DIR="$SCRIPT_DIR/modules"
 for hook in "$MODULES_DIR"/*/preToolUse.sh; do
     [[ -f "$hook" ]] || continue
     echo "$INPUT" | bash "$hook"
-    [[ $? -eq 2 ]] && exit 2
+    STATUS=$?
+    [[ $STATUS -ne 0 ]] && exit $STATUS
 done
 
 exit 0

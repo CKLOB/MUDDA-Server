@@ -10,8 +10,8 @@ if [[ "$TOOL_NAME" == "Bash" ]] || [[ "$TOOL_NAME" == "shell" ]]; then
         "> /dev/"
         "dd if="
         "mkfs"
-        "curl.*\| sh"
-        "wget.*\| sh"
+        "curl.*\|[[:space:]]*sh"
+        "wget.*\|[[:space:]]*sh"
     )
     for pattern in "${BLOCKED_PATTERNS[@]}"; do
         if [[ "$COMMAND" =~ $pattern ]]; then

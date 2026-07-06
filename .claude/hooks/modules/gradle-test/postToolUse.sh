@@ -10,7 +10,7 @@ CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 [[ "$FILE_PATH" == *.kt || "$FILE_PATH" == *.java ]] || exit 0
 [[ "$FILE_PATH" == */test/* ]] && exit 0
 FILE_NAME=$(basename "$FILE_PATH")
-[[ "$FILE_NAME" == *ServiceImpl.kt || "$FILE_NAME" == *ServiceImpl.java ]] || exit 0
+[[ "$FILE_NAME" == *Service.kt || "$FILE_NAME" == *ServiceImpl.kt || "$FILE_NAME" == *Service.java || "$FILE_NAME" == *ServiceImpl.java ]] || exit 0
 
 if [[ "$FILE_PATH" == /* ]]; then
     FILE_ABS="$FILE_PATH"

@@ -22,10 +22,10 @@ if [[ "$TOOL_NAME" == "Write" ]] || [[ "$TOOL_NAME" == "Edit" ]] || [[ "$TOOL_NA
     )
 
     for pattern in "${PATTERNS[@]}"; do
-        if echo "$CONTENT" | grep -qE "$pattern"; then
+        if printf "%s\n" "$CONTENT" | grep -qE "$pattern"; then
             echo "[Hook] Potential secret detected in $(basename "$FILE_PATH"). Pattern: $pattern" >&2
             echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Possible secret or credential detected in the file content. Review before writing."}}'
-            exit 0
+            exit 2
         fi
     done
 fi
