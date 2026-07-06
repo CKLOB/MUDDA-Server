@@ -27,6 +27,23 @@ Run tests:
 
 The default context-load test uses Testcontainers for PostgreSQL, so Docker must be running.
 
+Run locally:
+
+```bash
+cp .env.example .env
+./gradlew bootRun
+```
+
+Spring Boot starts the Docker Compose services for PostGIS and Redis during local runs.
+Use `http://localhost:8080/actuator/health` for the local health endpoint.
+If local PostgreSQL `5432` or Redis `6379` is already in use, change `DB_PORT` or `REDIS_PORT` in `.env`.
+
+Check the Compose file:
+
+```bash
+docker compose config
+```
+
 ## Gradle Files
 
 - `build.gradle.kts`: plugins and dependency setup

@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.5-alpine
+    platform: linux/amd64
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME:-mudda}
+      POSTGRES_USER: ${DB_USERNAME:-mudda}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mudda}
+    labels:
+      org.springframework.boot.service-connection: postgres
+    volumes:
+      - mudda-postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - mudda-redis-data:/data
+
+volumes:
+  mudda-postgres-data:
+  mudda-redis-data:
