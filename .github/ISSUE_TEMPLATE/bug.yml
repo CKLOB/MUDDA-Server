@@ -1,8 +1,9 @@
 name: "Bug"
 description: "버그가 생겼어요 👾"
-labels: 버그
+labels: ["버그"]
 body:
   - type: textarea
+    id: describe
     attributes:
       label: Describe
       description: |
@@ -10,6 +11,7 @@ body:
       placeholder: |
         conflict난거 그냥 merge해버림
   - type: textarea
+    id: additional
     attributes:
       label: Additional
       description: |

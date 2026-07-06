@@ -1,8 +1,9 @@
 name: "Todo"
 description: "해야할 것이 있나요??🤔"
-labels: 할일
+labels: ["할일"]
 body:
   - type: textarea
+    id: describe
     attributes:
       label: Describe
       description: |
@@ -10,6 +11,7 @@ body:
       placeholder: |
         회원가입 UI 작성
   - type: textarea
+    id: additional
     attributes:
       label: Additional
       description: |
