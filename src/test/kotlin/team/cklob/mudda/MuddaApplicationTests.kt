@@ -8,6 +8,8 @@ import org.testcontainers.utility.DockerImageName
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 
+class PostgisContainer(imageName: DockerImageName) : PostgreSQLContainer<PostgisContainer>(imageName)
+
 @SpringBootTest(
 	properties = [
 		"spring.cloud.aws.region.static=ap-northeast-2",
@@ -30,6 +32,7 @@ class MuddaApplicationTests {
 		@Container
 		@ServiceConnection
 		@JvmStatic
-		val postgres = PostgreSQLContainer<Nothing>(postgisImage)
+		val postgres = PostgisContainer(postgisImage)
+			.withInitScript("db/init/001_enable_postgis.sql")
 	}
 }

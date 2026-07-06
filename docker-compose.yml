@@ -12,6 +12,7 @@ services:
       org.springframework.boot.service-connection: postgres
     volumes:
       - mudda-postgres-data:/var/lib/postgresql/data
+      - ./src/main/resources/db/init/001_enable_postgis.sql:/docker-entrypoint-initdb.d/001_enable_postgis.sql:ro
 
   redis:
     image: redis:7.4-alpine
