@@ -17,8 +17,8 @@ spring:
       region:
         static: ${AWS_REGION:ap-northeast-2}
       credentials:
-        access-key: ${AWS_ACCESS_KEY:test}
-        secret-key: ${AWS_SECRET_KEY:test}
+        access-key: ${AWS_ACCESS_KEY:}
+        secret-key: ${AWS_SECRET_KEY:}
 
 server:
   port: ${SERVER_PORT:8080}
