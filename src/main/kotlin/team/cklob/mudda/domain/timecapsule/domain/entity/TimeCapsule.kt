@@ -18,10 +18,8 @@ import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.GeometryFactory
 import org.locationtech.jts.geom.Point
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
-import team.cklob.mudda.domain.timecapsule.domain.type.TimeCapsuleType
 import java.time.LocalDateTime
 
 @Entity
@@ -38,9 +36,8 @@ class TimeCapsule(
 	@Column(columnDefinition = "TEXT")
 	val content: String? = null,
 
-	@Enumerated(EnumType.STRING)
 	@Column(name = "time_capsule_type", nullable = false, length = 20)
-	val timeCapsuleType: TimeCapsuleType,
+	val timeCapsuleType: String,
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
@@ -93,10 +90,10 @@ class TimeCapsule(
 		protected set
 
 	protected constructor() : this(
-		Member("", "", "", null, null, ProfileVisibility.PRIVATE),
+		Member("", "", "", null, null, ""),
 		"",
 		null,
-		TimeCapsuleType.NORMAL,
+		"",
 		CapsuleVisibility.PRIVATE,
 		CapsuleLockType.NONE,
 		null,

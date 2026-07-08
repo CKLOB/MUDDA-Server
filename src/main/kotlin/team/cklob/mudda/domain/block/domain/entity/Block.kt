@@ -12,7 +12,6 @@ import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import java.time.LocalDateTime
 
 @Entity
@@ -50,6 +49,6 @@ class Block(
 	}
 
 	companion object {
-		private fun emptyMember() = Member("", "", "", null, null, ProfileVisibility.PRIVATE)
+		private fun emptyMember() = Member("", "", "", null, null, "")
 	}
 }

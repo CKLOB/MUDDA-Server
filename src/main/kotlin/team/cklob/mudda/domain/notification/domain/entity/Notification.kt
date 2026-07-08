@@ -13,7 +13,6 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.domain.notification.domain.type.NotificationType
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import java.time.LocalDateTime
@@ -50,7 +49,7 @@ class Notification(
 	var createdAt: LocalDateTime = LocalDateTime.now()
 		protected set
 
-	protected constructor() : this(Member("", "", "", null, null, ProfileVisibility.PRIVATE), null, NotificationType.SYSTEM, "", "", false)
+	protected constructor() : this(Member("", "", "", null, null, ""), null, NotificationType.FRIEND_REQUESTED, "", "", false)
 
 	@PrePersist
 	fun prePersist() {

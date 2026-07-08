@@ -4,5 +4,4 @@ enum class CapsuleLockType {
 	NONE,
 	PASSWORD,
 	QUESTION,
-	LOCATION,
 }

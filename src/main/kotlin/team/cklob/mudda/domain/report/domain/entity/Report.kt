@@ -2,8 +2,6 @@ package team.cklob.mudda.domain.report.domain.entity
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -14,9 +12,6 @@ import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
-import team.cklob.mudda.domain.report.domain.type.ReportReason
-import team.cklob.mudda.domain.report.domain.type.ReportTargetType
 import java.time.LocalDateTime
 
 @Entity
@@ -34,16 +29,14 @@ class Report(
 	@JoinColumn(name = "reporter_id", nullable = false)
 	val reporter: Member,
 
-	@Enumerated(EnumType.STRING)
 	@Column(name = "target_type", nullable = false, length = 30)
-	val targetType: ReportTargetType,
+	val targetType: String,
 
 	@Column(name = "target_id", nullable = false)
 	val targetId: Long,
 
-	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 30)
-	val reason: ReportReason,
+	val reason: String,
 
 	@Column(length = 500)
 	val description: String? = null,
@@ -56,7 +49,7 @@ class Report(
 	var createdAt: LocalDateTime = LocalDateTime.now()
 		protected set
 
-	protected constructor() : this(Member("", "", "", null, null, ProfileVisibility.PRIVATE), ReportTargetType.MEMBER, 0L, ReportReason.OTHER, null)
+	protected constructor() : this(Member("", "", "", null, null, ""), "", 0L, "", null)
 
 	@PrePersist
 	fun prePersist() {

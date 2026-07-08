@@ -14,11 +14,9 @@ import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import team.cklob.mudda.domain.media.domain.type.MediaType
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
-import team.cklob.mudda.domain.timecapsule.domain.type.TimeCapsuleType
 import java.time.LocalDateTime
 
 @Entity
@@ -55,10 +53,10 @@ class Media(
 
 	companion object {
 		private fun emptyTimeCapsule() = TimeCapsule(
-			Member("", "", "", null, null, ProfileVisibility.PRIVATE),
+			Member("", "", "", null, null, ""),
 			"",
 			null,
-			TimeCapsuleType.NORMAL,
+			"",
 			CapsuleVisibility.PRIVATE,
 			CapsuleLockType.NONE,
 			null,

@@ -12,10 +12,8 @@ import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
-import team.cklob.mudda.domain.timecapsule.domain.type.TimeCapsuleType
 import java.time.LocalDateTime
 
 @Entity
@@ -59,13 +57,13 @@ class CapsuleRecipient(
 	}
 
 	companion object {
-		private fun emptyMember() = Member("", "", "", null, null, ProfileVisibility.PRIVATE)
+		private fun emptyMember() = Member("", "", "", null, null, "")
 
 		private fun emptyTimeCapsule() = TimeCapsule(
 			emptyMember(),
 			"",
 			null,
-			TimeCapsuleType.NORMAL,
+			"",
 			CapsuleVisibility.PRIVATE,
 			CapsuleLockType.NONE,
 			null,

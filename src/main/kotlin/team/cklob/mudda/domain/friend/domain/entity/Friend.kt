@@ -13,9 +13,8 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
-import team.cklob.mudda.domain.friend.domain.type.FriendStatus
+import team.cklob.mudda.domain.friend.domain.type.FriendRequestStatus
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import java.time.LocalDateTime
 
 @Entity
@@ -39,7 +38,7 @@ class Friend(
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
-	val status: FriendStatus,
+	val status: FriendRequestStatus,
 
 	@Column(name = "accepted_at")
 	val acceptedAt: LocalDateTime? = null,
@@ -52,7 +51,7 @@ class Friend(
 	var createdAt: LocalDateTime = LocalDateTime.now()
 		protected set
 
-	protected constructor() : this(emptyMember(), emptyMember(), FriendStatus.PENDING, null)
+	protected constructor() : this(emptyMember(), emptyMember(), FriendRequestStatus.PENDING, null)
 
 	@PrePersist
 	fun prePersist() {
@@ -60,6 +59,6 @@ class Friend(
 	}
 
 	companion object {
-		private fun emptyMember() = Member("", "", "", null, null, ProfileVisibility.PRIVATE)
+		private fun emptyMember() = Member("", "", "", null, null, "")
 	}
 }

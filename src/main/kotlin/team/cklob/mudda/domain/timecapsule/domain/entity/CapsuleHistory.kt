@@ -2,8 +2,6 @@ package team.cklob.mudda.domain.timecapsule.domain.entity
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -13,11 +11,8 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
-import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEventType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
-import team.cklob.mudda.domain.timecapsule.domain.type.TimeCapsuleType
 import java.time.LocalDateTime
 
 @Entity
@@ -31,9 +26,8 @@ class CapsuleHistory(
 	@JoinColumn(name = "member_id", nullable = false)
 	val member: Member,
 
-	@Enumerated(EnumType.STRING)
 	@Column(name = "event_type", nullable = false, length = 20)
-	val eventType: CapsuleEventType,
+	val eventType: String,
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,7 +37,7 @@ class CapsuleHistory(
 	var createdAt: LocalDateTime = LocalDateTime.now()
 		protected set
 
-	protected constructor() : this(emptyTimeCapsule(), emptyMember(), CapsuleEventType.CREATED)
+	protected constructor() : this(emptyTimeCapsule(), emptyMember(), "")
 
 	@PrePersist
 	fun prePersist() {
@@ -51,13 +45,13 @@ class CapsuleHistory(
 	}
 
 	companion object {
-		private fun emptyMember() = Member("", "", "", null, null, ProfileVisibility.PRIVATE)
+		private fun emptyMember() = Member("", "", "", null, null, "")
 
 		private fun emptyTimeCapsule() = TimeCapsule(
 			emptyMember(),
 			"",
 			null,
-			TimeCapsuleType.NORMAL,
+			"",
 			CapsuleVisibility.PRIVATE,
 			CapsuleLockType.NONE,
 			null,
