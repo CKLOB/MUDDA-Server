@@ -10,11 +10,11 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
-import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import team.cklob.mudda.domain.friend.domain.type.FriendRequestStatus
 import team.cklob.mudda.domain.member.domain.entity.Member
+import team.cklob.mudda.global.common.entity.BaseCreatedAtEntity
 import java.time.LocalDateTime
 
 @Entity
@@ -38,27 +38,12 @@ class Friend(
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
-	val status: FriendRequestStatus,
+	var status: FriendRequestStatus,
 
 	@Column(name = "accepted_at")
-	val acceptedAt: LocalDateTime? = null,
+	var acceptedAt: LocalDateTime? = null,
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	val id: Long? = null,
-) {
-	@Column(name = "created_at", nullable = false)
-	var createdAt: LocalDateTime = LocalDateTime.now()
-		protected set
-
-	protected constructor() : this(emptyMember(), emptyMember(), FriendRequestStatus.PENDING, null)
-
-	@PrePersist
-	fun prePersist() {
-		createdAt = LocalDateTime.now()
-	}
-
-	companion object {
-		private fun emptyMember() = Member("", "", "", null, null, "")
-	}
-}
+) : BaseCreatedAtEntity()

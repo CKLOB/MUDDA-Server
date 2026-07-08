@@ -146,5 +146,3 @@ CREATE INDEX idx_capsule_history_time_capsule ON tbl_capsule_history (time_capsu
 CREATE INDEX idx_guestbook_time_capsule_deleted_created ON tbl_guestbook (time_capsule_id, is_deleted, created_at DESC);
 CREATE INDEX idx_friend_receiver ON tbl_friend (receiver_id);
 CREATE INDEX idx_notification_recipient_created ON tbl_notification (recipient_id, created_at DESC);
-CREATE INDEX idx_report_reporter ON tbl_report (reporter_id);
-CREATE INDEX idx_block_blocker ON tbl_block (blocker_id);

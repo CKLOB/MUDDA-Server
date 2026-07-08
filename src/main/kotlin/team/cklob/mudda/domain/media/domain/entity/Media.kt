@@ -10,14 +10,10 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
-import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import team.cklob.mudda.domain.media.domain.type.MediaType
-import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
-import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
-import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
-import java.time.LocalDateTime
+import team.cklob.mudda.global.common.entity.BaseCreatedAtEntity
 
 @Entity
 @Table(name = "tbl_media")
@@ -39,36 +35,4 @@ class Media(
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	val id: Long? = null,
-) {
-	@Column(name = "created_at", nullable = false)
-	var createdAt: LocalDateTime = LocalDateTime.now()
-		protected set
-
-	protected constructor() : this(emptyTimeCapsule(), MediaType.IMAGE, "", "")
-
-	@PrePersist
-	fun prePersist() {
-		createdAt = LocalDateTime.now()
-	}
-
-	companion object {
-		private fun emptyTimeCapsule() = TimeCapsule(
-			Member("", "", "", null, null, ""),
-			"",
-			null,
-			"",
-			CapsuleVisibility.PRIVATE,
-			CapsuleLockType.NONE,
-			null,
-			null,
-			null,
-			org.locationtech.jts.geom.GeometryFactory().createPoint(org.locationtech.jts.geom.Coordinate(0.0, 0.0)),
-			null,
-			0,
-			LocalDateTime.now(),
-			false,
-			false,
-			false,
-		)
-	}
-}
+) : BaseCreatedAtEntity()

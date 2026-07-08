@@ -12,8 +12,6 @@ import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import org.locationtech.jts.geom.Point
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
-import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import java.time.LocalDateTime
 
 @Entity
@@ -44,29 +42,4 @@ class CapsuleOpen(
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	val id: Long? = null,
-) {
-	protected constructor() : this(emptyTimeCapsule(), emptyMember(), LocalDateTime.now(), null)
-
-	companion object {
-		private fun emptyMember() = Member("", "", "", null, null, "")
-
-		private fun emptyTimeCapsule() = TimeCapsule(
-			emptyMember(),
-			"",
-			null,
-			"",
-			CapsuleVisibility.PRIVATE,
-			CapsuleLockType.NONE,
-			null,
-			null,
-			null,
-			org.locationtech.jts.geom.GeometryFactory().createPoint(org.locationtech.jts.geom.Coordinate(0.0, 0.0)),
-			null,
-			0,
-			LocalDateTime.now(),
-			false,
-			false,
-			false,
-		)
-	}
-}
+)

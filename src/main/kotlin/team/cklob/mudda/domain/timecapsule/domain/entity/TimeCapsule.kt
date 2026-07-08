@@ -11,15 +11,12 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.Lob
 import jakarta.persistence.ManyToOne
-import jakarta.persistence.PrePersist
-import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
-import org.locationtech.jts.geom.Coordinate
-import org.locationtech.jts.geom.GeometryFactory
 import org.locationtech.jts.geom.Point
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
+import team.cklob.mudda.global.common.entity.BaseTimeEntity
 import java.time.LocalDateTime
 
 @Entity
@@ -75,48 +72,9 @@ class TimeCapsule(
 	val isFeedPublic: Boolean,
 
 	@Column(name = "is_deleted", nullable = false)
-	val isDeleted: Boolean = false,
+	var isDeleted: Boolean = false,
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	val id: Long? = null,
-) {
-	@Column(name = "created_at", nullable = false)
-	var createdAt: LocalDateTime = LocalDateTime.now()
-		protected set
-
-	@Column(name = "updated_at", nullable = false)
-	var updatedAt: LocalDateTime = LocalDateTime.now()
-		protected set
-
-	protected constructor() : this(
-		Member("", "", "", null, null, ""),
-		"",
-		null,
-		"",
-		CapsuleVisibility.PRIVATE,
-		CapsuleLockType.NONE,
-		null,
-		null,
-		null,
-		GeometryFactory().createPoint(Coordinate(0.0, 0.0)),
-		null,
-		0,
-		LocalDateTime.now(),
-		false,
-		false,
-		false,
-	)
-
-	@PrePersist
-	fun prePersist() {
-		val now = LocalDateTime.now()
-		createdAt = now
-		updatedAt = now
-	}
-
-	@PreUpdate
-	fun preUpdate() {
-		updatedAt = LocalDateTime.now()
-	}
-}
+) : BaseTimeEntity()

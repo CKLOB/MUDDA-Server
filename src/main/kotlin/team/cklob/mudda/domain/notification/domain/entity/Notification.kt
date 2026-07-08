@@ -10,12 +10,11 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
-import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.notification.domain.type.NotificationType
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
-import java.time.LocalDateTime
+import team.cklob.mudda.global.common.entity.BaseCreatedAtEntity
 
 @Entity
 @Table(name = "tbl_notification")
@@ -39,20 +38,9 @@ class Notification(
 	val body: String,
 
 	@Column(name = "is_read", nullable = false)
-	val isRead: Boolean = false,
+	var isRead: Boolean = false,
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	val id: Long? = null,
-) {
-	@Column(name = "created_at", nullable = false)
-	var createdAt: LocalDateTime = LocalDateTime.now()
-		protected set
-
-	protected constructor() : this(Member("", "", "", null, null, ""), null, NotificationType.FRIEND_REQUESTED, "", "", false)
-
-	@PrePersist
-	fun prePersist() {
-		createdAt = LocalDateTime.now()
-	}
-}
+) : BaseCreatedAtEntity()
