@@ -8,7 +8,7 @@ import org.springframework.data.redis.serializer.RedisSerializer
 
 class RedisConfigTest {
     @Test fun `serializes Kotlin data classes without field loss`() {
-        val serializer = RedisConfig().redisTemplate(mockk<RedisConnectionFactory>(), JacksonConfig().objectMapper()).valueSerializer as RedisSerializer<Any>
+        val serializer = RedisConfig().redisTemplate(mockk<RedisConnectionFactory>(), com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()).valueSerializer as RedisSerializer<Any>
         val value = CachedValue(1, "capsule")
 
         assertEquals(value, serializer.deserialize(serializer.serialize(value)))

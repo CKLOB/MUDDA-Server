@@ -17,7 +17,11 @@ class RedisConfig {
         connectionFactory = factory
         keySerializer = StringRedisSerializer()
         valueSerializer = GenericJackson2JsonRedisSerializer(objectMapper.copy().activateDefaultTyping(
-            BasicPolymorphicTypeValidator.builder().allowIfSubType("team.cklob.mudda").build(),
+            BasicPolymorphicTypeValidator.builder()
+                .allowIfSubType("team.cklob.mudda")
+                .allowIfSubType("java.util.")
+                .allowIfSubType("java.time.")
+                .build(),
             ObjectMapper.DefaultTyping.EVERYTHING,
             JsonTypeInfo.As.PROPERTY,
         ))
