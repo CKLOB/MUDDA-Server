@@ -19,4 +19,19 @@ class JwtTokenProviderTest {
         val expired = JwtTokenProvider(JwtProperties("test-secret-that-is-at-least-thirty-two-bytes", -1, -1)).createAccessToken(1)
         assertFalse(provider.validate(expired))
     }
+
+    @Test fun `each issued token has a unique jti`() {
+        val first = provider.createAccessToken(1)
+        val second = provider.createAccessToken(1)
+
+        assertTrue(provider.getJti(first).isNotBlank())
+        assertTrue(provider.getJti(first) != provider.getJti(second))
+    }
+
+    @Test fun `remaining validity is close to the configured expiration`() {
+        val access = provider.createAccessToken(1)
+        val remaining = provider.getRemainingValidity(access)
+
+        assertTrue(remaining.toMillis() in 1..60_000)
+    }
 }

@@ -8,13 +8,19 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource
 import org.springframework.web.filter.OncePerRequestFilter
 
-class JwtAuthenticationFilter(private val jwtTokenProvider: JwtTokenProvider) : OncePerRequestFilter() {
+class JwtAuthenticationFilter(
+    private val jwtTokenProvider: JwtTokenProvider,
+    private val accessTokenBlacklist: AccessTokenBlacklist,
+) : OncePerRequestFilter() {
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
-        request.getHeader("Authorization")?.takeIf { it.startsWith("Bearer ") }?.substring(7)?.takeIf(jwtTokenProvider::validate)?.let { token ->
-            val authentication = UsernamePasswordAuthenticationToken(jwtTokenProvider.getMemberId(token), null, emptyList())
-            authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
-            SecurityContextHolder.getContext().authentication = authentication
-        }
+        request.getHeader("Authorization")?.takeIf { it.startsWith("Bearer ") }?.substring(7)
+            ?.takeIf(jwtTokenProvider::validate)
+            ?.takeUnless { accessTokenBlacklist.isBlacklisted(jwtTokenProvider.getJti(it)) }
+            ?.let { token ->
+                val authentication = UsernamePasswordAuthenticationToken(jwtTokenProvider.getMemberId(token), null, emptyList())
+                authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
+                SecurityContextHolder.getContext().authentication = authentication
+            }
         filterChain.doFilter(request, response)
     }
 }
