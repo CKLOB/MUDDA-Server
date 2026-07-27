@@ -19,6 +19,7 @@ class KakaoOAuthStrategyTest {
     private val properties = OAuthProperties(
         kakao = OAuthProperties.Kakao(clientId = "kakao-client-id"),
         google = OAuthProperties.Google(clientId = "google-client-id", clientSecret = "google-secret"),
+        apple = OAuthProperties.Apple(clientId = "apple-client-id", teamId = "team-id", keyId = "key-id", privateKey = "unused"),
     )
 
     private fun buildStrategy(): Pair<KakaoOAuthStrategy, MockRestServiceServer> {
