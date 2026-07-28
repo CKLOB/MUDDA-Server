@@ -17,12 +17,12 @@ import team.cklob.mudda.global.security.JwtTokenProvider
 import java.time.Duration
 import java.util.Optional
 
-class WithdrawServiceTest {
+class WithdrawAuthServiceTest {
     private val memberRepository = mockk<MemberRepository>()
     private val jwtTokenProvider = mockk<JwtTokenProvider>()
     private val accessTokenBlacklist = mockk<AccessTokenBlacklist>(relaxed = true)
     private val refreshTokenStore = mockk<RefreshTokenStore>(relaxed = true)
-    private val service = WithdrawService(memberRepository, jwtTokenProvider, accessTokenBlacklist, refreshTokenStore)
+    private val service = WithdrawAuthService(memberRepository, jwtTokenProvider, accessTokenBlacklist, refreshTokenStore)
 
     @Test fun `soft deletes and anonymizes the member, then revokes tokens`() {
         val member = Member(name = "name", nickname = "nickname", email = "user@example.com", oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = "PUBLIC")

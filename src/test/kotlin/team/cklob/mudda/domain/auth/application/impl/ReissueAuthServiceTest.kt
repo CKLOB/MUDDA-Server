@@ -9,10 +9,10 @@ import team.cklob.mudda.domain.auth.application.RefreshTokenStore
 import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.security.JwtTokenProvider
 
-class ReissueServiceTest {
+class ReissueAuthServiceTest {
     private val jwtTokenProvider = mockk<JwtTokenProvider>()
     private val refreshTokenStore = mockk<RefreshTokenStore>(relaxed = true)
-    private val service = ReissueService(jwtTokenProvider, refreshTokenStore)
+    private val service = ReissueAuthService(jwtTokenProvider, refreshTokenStore)
 
     @Test fun `reissues tokens when the refresh token matches the stored one`() {
         every { jwtTokenProvider.validate("refresh-token") } returns true

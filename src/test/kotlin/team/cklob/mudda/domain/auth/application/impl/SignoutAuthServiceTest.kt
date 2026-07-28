@@ -9,11 +9,11 @@ import team.cklob.mudda.global.security.AccessTokenBlacklist
 import team.cklob.mudda.global.security.JwtTokenProvider
 import java.time.Duration
 
-class SignoutServiceTest {
+class SignoutAuthServiceTest {
     private val jwtTokenProvider = mockk<JwtTokenProvider>()
     private val accessTokenBlacklist = mockk<AccessTokenBlacklist>(relaxed = true)
     private val refreshTokenStore = mockk<RefreshTokenStore>(relaxed = true)
-    private val service = SignoutService(jwtTokenProvider, accessTokenBlacklist, refreshTokenStore)
+    private val service = SignoutAuthService(jwtTokenProvider, accessTokenBlacklist, refreshTokenStore)
 
     @Test fun `blacklists the access token and deletes the stored refresh token`() {
         every { jwtTokenProvider.getJti("access-token") } returns "jti-1"

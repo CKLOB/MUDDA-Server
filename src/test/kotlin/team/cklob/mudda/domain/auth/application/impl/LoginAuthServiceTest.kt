@@ -12,7 +12,7 @@ import org.springframework.test.util.ReflectionTestUtils
 import team.cklob.mudda.domain.auth.application.OAuthStrategy
 import team.cklob.mudda.domain.auth.application.RefreshTokenStore
 import team.cklob.mudda.domain.auth.domain.type.OAuthUserInfo
-import team.cklob.mudda.domain.auth.presentation.request.OAuthLoginRequest
+import team.cklob.mudda.domain.auth.presentation.request.LoginAuthRequest
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
@@ -20,14 +20,14 @@ import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.security.JwtTokenProvider
 import java.util.Optional
 
-class OAuthLoginServiceTest {
+class LoginAuthServiceTest {
     private val strategy = mockk<OAuthStrategy>()
     private val memberRepository = mockk<MemberRepository>()
     private val jwtTokenProvider = mockk<JwtTokenProvider>()
     private val refreshTokenStore = mockk<RefreshTokenStore>(relaxed = true)
-    private val service = OAuthLoginService(listOf(strategy), memberRepository, jwtTokenProvider, refreshTokenStore)
+    private val service = LoginAuthService(listOf(strategy), memberRepository, jwtTokenProvider, refreshTokenStore)
 
-    private val request = OAuthLoginRequest("auth-code", "https://app.mudda.com/oauth/callback")
+    private val request = LoginAuthRequest("auth-code", "https://app.mudda.com/oauth/callback")
     private val userInfo = OAuthUserInfo(OAuthProvider.GOOGLE, "google-sub-1", "user@example.com")
 
     @Test fun `issues tokens for an existing fully signed up member`() {

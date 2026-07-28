@@ -2,17 +2,17 @@ package team.cklob.mudda.domain.auth.application.impl
 
 import org.springframework.stereotype.Service
 import team.cklob.mudda.domain.auth.application.RefreshTokenStore
-import team.cklob.mudda.domain.auth.presentation.response.TokenResponse
+import team.cklob.mudda.domain.auth.presentation.response.ReissueAuthResponse
 import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.exception.ErrorCode
 import team.cklob.mudda.global.security.JwtTokenProvider
 
 @Service
-class ReissueService(
+class ReissueAuthService(
     private val jwtTokenProvider: JwtTokenProvider,
     private val refreshTokenStore: RefreshTokenStore,
 ) {
-    fun execute(refreshToken: String): TokenResponse {
+    fun execute(refreshToken: String): ReissueAuthResponse {
         if (!jwtTokenProvider.validate(refreshToken)) throw AuthException(ErrorCode.INVALID_REFRESH_TOKEN)
 
         val memberId = jwtTokenProvider.getMemberId(refreshToken)
@@ -23,6 +23,6 @@ class ReissueService(
         val newRefreshToken = jwtTokenProvider.createRefreshToken(memberId)
         refreshTokenStore.save(memberId, newRefreshToken)
 
-        return TokenResponse(newAccessToken, newRefreshToken)
+        return ReissueAuthResponse(newAccessToken, newRefreshToken)
     }
 }

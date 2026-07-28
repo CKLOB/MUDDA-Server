@@ -6,7 +6,7 @@ import team.cklob.mudda.global.security.AccessTokenBlacklist
 import team.cklob.mudda.global.security.JwtTokenProvider
 
 @Service
-class SignoutService(
+class SignoutAuthService(
     private val jwtTokenProvider: JwtTokenProvider,
     private val accessTokenBlacklist: AccessTokenBlacklist,
     private val refreshTokenStore: RefreshTokenStore,

@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import org.springframework.test.util.ReflectionTestUtils
-import team.cklob.mudda.domain.auth.presentation.request.SignupRequest
+import team.cklob.mudda.domain.auth.presentation.request.SignupAuthRequest
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.domain.type.Gender
@@ -15,11 +15,11 @@ import team.cklob.mudda.global.exception.BusinessException
 import team.cklob.mudda.global.exception.ErrorCode
 import java.util.Optional
 
-class SignupServiceTest {
+class SignupAuthServiceTest {
     private val memberRepository = mockk<MemberRepository>()
-    private val service = SignupService(memberRepository)
+    private val service = SignupAuthService(memberRepository)
 
-    private val request = SignupRequest(name = "name", nickname = "nickname", gender = Gender.MALE, age = 20)
+    private val request = SignupAuthRequest(name = "name", nickname = "nickname", gender = Gender.MALE, age = 20)
 
     private fun incompleteMember(): Member {
         val member = Member(email = "user@example.com", oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = "PUBLIC")

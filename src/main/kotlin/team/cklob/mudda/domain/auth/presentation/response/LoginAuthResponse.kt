@@ -1,6 +1,7 @@
 package team.cklob.mudda.domain.auth.presentation.response
 
-data class TokenResponse(
+data class LoginAuthResponse(
     val accessToken: String,
     val refreshToken: String,
+    val isNewMember: Boolean,
 )

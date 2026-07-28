@@ -11,7 +11,7 @@ import team.cklob.mudda.global.security.JwtTokenProvider
 import java.time.LocalDateTime
 
 @Service
-class WithdrawService(
+class WithdrawAuthService(
     private val memberRepository: MemberRepository,
     private val jwtTokenProvider: JwtTokenProvider,
     private val accessTokenBlacklist: AccessTokenBlacklist,

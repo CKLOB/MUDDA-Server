@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import team.cklob.mudda.domain.member.domain.type.Gender
 
-data class SignupRequest(
+data class SignupAuthRequest(
     @field:NotBlank
     @field:Size(max = 30)
     val name: String,
