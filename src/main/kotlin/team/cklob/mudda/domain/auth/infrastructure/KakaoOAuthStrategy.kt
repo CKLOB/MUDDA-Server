@@ -1,6 +1,7 @@
 package team.cklob.mudda.domain.auth.infrastructure
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -18,6 +19,7 @@ class KakaoOAuthStrategy(
     private val properties: OAuthProperties,
 ) : OAuthStrategy {
     private val restClient = restClientBuilder.build()
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun supports(provider: OAuthProvider) = provider == OAuthProvider.KAKAO
 
@@ -38,7 +40,7 @@ class KakaoOAuthStrategy(
                 .body(form)
                 .retrieve()
                 .body(KakaoTokenResponse::class.java)
-        }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
+        }.onFailure { logger.warn("Kakao token exchange failed", it) }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
 
         val userResponse = runCatching {
             restClient.get()
@@ -46,9 +48,11 @@ class KakaoOAuthStrategy(
                 .header(HttpHeaders.AUTHORIZATION, "Bearer ${tokenResponse.accessToken}")
                 .retrieve()
                 .body(KakaoUserResponse::class.java)
-        }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
+        }.onFailure { logger.warn("Kakao user info request failed", it) }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
 
-        val email = userResponse.kakaoAccount?.email ?: throw AuthException(ErrorCode.OAUTH_EMAIL_REQUIRED)
+        // Email consent is optional on Kakao; the real identifier is providerId, so fall back to a
+        // synthetic address instead of hard-blocking login (same pattern as withdrawal's anonymized email).
+        val email = userResponse.kakaoAccount?.email ?: "kakao-${userResponse.id}@mudda.local"
         return OAuthUserInfo(OAuthProvider.KAKAO, userResponse.id.toString(), email)
     }
 }

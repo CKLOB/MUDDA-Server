@@ -3,6 +3,7 @@ package team.cklob.mudda.domain.auth.infrastructure
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.jsonwebtoken.Jwts
+import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
@@ -30,6 +31,7 @@ class AppleOAuthStrategy(
 ) : OAuthStrategy {
     private val restClient = restClientBuilder.build()
     private val privateKey: PrivateKey by lazy { parsePrivateKey(properties.apple.privateKey) }
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun supports(provider: OAuthProvider) = provider == OAuthProvider.APPLE
 
@@ -50,10 +52,10 @@ class AppleOAuthStrategy(
                 .body(form)
                 .retrieve()
                 .body(AppleTokenResponse::class.java)
-        }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
+        }.onFailure { logger.warn("Apple token exchange failed", it) }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
 
         val claims = decodeIdTokenPayload(tokenResponse.idToken)
-        val email = claims.email ?: throw AuthException(ErrorCode.OAUTH_EMAIL_REQUIRED)
+        val email = claims.email ?: "apple-${claims.sub}@mudda.local"
         return OAuthUserInfo(OAuthProvider.APPLE, claims.sub, email)
     }
 

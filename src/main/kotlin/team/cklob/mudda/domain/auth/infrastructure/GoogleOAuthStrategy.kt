@@ -1,6 +1,7 @@
 package team.cklob.mudda.domain.auth.infrastructure
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -18,6 +19,7 @@ class GoogleOAuthStrategy(
     private val properties: OAuthProperties,
 ) : OAuthStrategy {
     private val restClient = restClientBuilder.build()
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun supports(provider: OAuthProvider) = provider == OAuthProvider.GOOGLE
 
@@ -38,7 +40,7 @@ class GoogleOAuthStrategy(
                 .body(form)
                 .retrieve()
                 .body(GoogleTokenResponse::class.java)
-        }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
+        }.onFailure { logger.warn("Google token exchange failed", it) }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
 
         val userResponse = runCatching {
             restClient.get()
@@ -46,9 +48,9 @@ class GoogleOAuthStrategy(
                 .header(HttpHeaders.AUTHORIZATION, "Bearer ${tokenResponse.accessToken}")
                 .retrieve()
                 .body(GoogleUserInfoResponse::class.java)
-        }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
+        }.onFailure { logger.warn("Google user info request failed", it) }.getOrNull() ?: throw AuthException(ErrorCode.OAUTH_INVALID_CODE)
 
-        val email = userResponse.email ?: throw AuthException(ErrorCode.OAUTH_EMAIL_REQUIRED)
+        val email = userResponse.email ?: "google-${userResponse.sub}@mudda.local"
         return OAuthUserInfo(OAuthProvider.GOOGLE, userResponse.sub, email)
     }
 }

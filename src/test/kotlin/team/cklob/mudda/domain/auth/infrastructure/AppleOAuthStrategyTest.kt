@@ -72,12 +72,14 @@ class AppleOAuthStrategyTest {
         assertThrows(AuthException::class.java) { strategy.authenticate("bad-code", "https://app.mudda.com/oauth/callback") }
     }
 
-    @Test fun `throws when the apple id token has no email`() {
+    @Test fun `falls back to a synthetic email when the apple id token has no email`() {
         val (strategy, server) = buildStrategy()
         val idToken = fakeIdToken("apple-user-1", null)
         server.expect(ExpectedCount.once(), requestTo(properties.apple.tokenUri))
             .andRespond(withSuccess("""{"id_token":"$idToken"}""", MediaType.APPLICATION_JSON))
 
-        assertThrows(AuthException::class.java) { strategy.authenticate("auth-code", "https://app.mudda.com/oauth/callback") }
+        val userInfo = strategy.authenticate("auth-code", "https://app.mudda.com/oauth/callback")
+
+        assertEquals("apple-apple-user-1@mudda.local", userInfo.email)
     }
 }

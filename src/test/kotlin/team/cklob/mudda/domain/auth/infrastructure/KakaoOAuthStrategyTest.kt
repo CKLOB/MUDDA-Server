@@ -52,13 +52,15 @@ class KakaoOAuthStrategyTest {
         assertThrows(AuthException::class.java) { strategy.authenticate("bad-code", "https://app.mudda.com/oauth/callback") }
     }
 
-    @Test fun `throws when kakao does not return an email`() {
+    @Test fun `falls back to a synthetic email when kakao does not return one`() {
         val (strategy, server) = buildStrategy()
         server.expect(ExpectedCount.once(), requestTo(properties.kakao.tokenUri))
             .andRespond(withSuccess("""{"access_token":"kakao-access-token"}""", MediaType.APPLICATION_JSON))
         server.expect(ExpectedCount.once(), requestTo(properties.kakao.userInfoUri))
             .andRespond(withSuccess("""{"id":12345,"kakao_account":null}""", MediaType.APPLICATION_JSON))
 
-        assertThrows(AuthException::class.java) { strategy.authenticate("auth-code", "https://app.mudda.com/oauth/callback") }
+        val userInfo = strategy.authenticate("auth-code", "https://app.mudda.com/oauth/callback")
+
+        assertEquals("kakao-12345@mudda.local", userInfo.email)
     }
 }
