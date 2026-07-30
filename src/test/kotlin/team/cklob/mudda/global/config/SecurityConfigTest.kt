@@ -25,6 +25,7 @@ class SecurityConfigTest(@Autowired private val mockMvc: MockMvc, @Autowired pri
 
     @Test fun `permits public map path and rejects protected path without authentication`() {
         every { accessTokenBlacklist.isBlacklisted(any()) } returns false
+        every { accessTokenBlacklist.isRevoked(any(), any()) } returns false
         mockMvc.perform(get("/api/v1/maps/ping")).andExpect(status().isOk)
         mockMvc.perform(get("/api/v1/private/ping")).andExpect(status().isUnauthorized)
         mockMvc.perform(get("/api/v1/private/ping").header("Authorization", "Bearer ${jwtTokenProvider.createAccessToken(1)}")).andExpect(status().isOk)

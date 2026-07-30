@@ -28,7 +28,9 @@ class WithdrawAuthService(
         member.bio = null
         member.withdrawnAt = LocalDateTime.now()
 
-        accessTokenBlacklist.blacklist(jwtTokenProvider.getJti(accessToken), jwtTokenProvider.getRemainingValidity(accessToken))
+        val jti = jwtTokenProvider.getJti(accessToken) ?: throw AuthException(ErrorCode.INVALID_TOKEN)
+        accessTokenBlacklist.blacklist(jti, jwtTokenProvider.getRemainingValidity(accessToken))
+        accessTokenBlacklist.revokeAllIssuedBefore(memberId, jwtTokenProvider.getAccessTokenMaxTtl())
         refreshTokenStore.delete(memberId)
     }
 }

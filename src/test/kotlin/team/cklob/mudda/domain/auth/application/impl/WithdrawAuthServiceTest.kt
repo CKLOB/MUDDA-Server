@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import org.springframework.test.util.ReflectionTestUtils
 import team.cklob.mudda.domain.auth.application.RefreshTokenStore
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
@@ -25,11 +24,14 @@ class WithdrawAuthServiceTest {
     private val service = WithdrawAuthService(memberRepository, jwtTokenProvider, accessTokenBlacklist, refreshTokenStore)
 
     @Test fun `soft deletes and anonymizes the member, then revokes tokens`() {
-        val member = Member(name = "name", nickname = "nickname", email = "user@example.com", oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = "PUBLIC")
-        ReflectionTestUtils.setField(member, "id", 1L)
+        val member = Member(
+            name = "name", nickname = "nickname", email = "user@example.com",
+            oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = "PUBLIC", id = 1L,
+        )
         every { memberRepository.findById(1L) } returns Optional.of(member)
         every { jwtTokenProvider.getJti("access-token") } returns "jti-1"
         every { jwtTokenProvider.getRemainingValidity("access-token") } returns Duration.ofMinutes(30)
+        every { jwtTokenProvider.getAccessTokenMaxTtl() } returns Duration.ofHours(1)
 
         service.execute(1L, "access-token")
 
@@ -38,6 +40,7 @@ class WithdrawAuthServiceTest {
         assertEquals("withdrawn-1@mudda.local", member.email)
         assertNotNull(member.withdrawnAt)
         verify { accessTokenBlacklist.blacklist("jti-1", Duration.ofMinutes(30)) }
+        verify { accessTokenBlacklist.revokeAllIssuedBefore(1L, Duration.ofHours(1)) }
         verify { refreshTokenStore.delete(1L) }
     }
 }

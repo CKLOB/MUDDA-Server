@@ -16,6 +16,7 @@ class ReissueAuthServiceTest {
 
     @Test fun `reissues tokens when the refresh token matches the stored one`() {
         every { jwtTokenProvider.validate("refresh-token") } returns true
+        every { jwtTokenProvider.isRefreshToken("refresh-token") } returns true
         every { jwtTokenProvider.getMemberId("refresh-token") } returns 1L
         every { refreshTokenStore.find(1L) } returns "refresh-token"
         every { jwtTokenProvider.createAccessToken(1L) } returns "new-access-token"
@@ -33,8 +34,16 @@ class ReissueAuthServiceTest {
         assertThrows(AuthException::class.java) { service.execute("bad-token") }
     }
 
+    @Test fun `rejects an access token presented as a refresh token`() {
+        every { jwtTokenProvider.validate("access-token") } returns true
+        every { jwtTokenProvider.isRefreshToken("access-token") } returns false
+
+        assertThrows(AuthException::class.java) { service.execute("access-token") }
+    }
+
     @Test fun `rejects a refresh token that does not match the one stored in redis`() {
         every { jwtTokenProvider.validate("refresh-token") } returns true
+        every { jwtTokenProvider.isRefreshToken("refresh-token") } returns true
         every { jwtTokenProvider.getMemberId("refresh-token") } returns 1L
         every { refreshTokenStore.find(1L) } returns "a-different-token"
 

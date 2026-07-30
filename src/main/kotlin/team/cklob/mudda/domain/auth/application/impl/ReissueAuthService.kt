@@ -13,7 +13,9 @@ class ReissueAuthService(
     private val refreshTokenStore: RefreshTokenStore,
 ) {
     fun execute(refreshToken: String): ReissueAuthResponse {
-        if (!jwtTokenProvider.validate(refreshToken)) throw AuthException(ErrorCode.INVALID_REFRESH_TOKEN)
+        if (!jwtTokenProvider.validate(refreshToken) || !jwtTokenProvider.isRefreshToken(refreshToken)) {
+            throw AuthException(ErrorCode.INVALID_REFRESH_TOKEN)
+        }
 
         val memberId = jwtTokenProvider.getMemberId(refreshToken)
         val storedToken = refreshTokenStore.find(memberId)

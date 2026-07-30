@@ -2,6 +2,8 @@ package team.cklob.mudda.global.security
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -24,7 +26,7 @@ class JwtTokenProviderTest {
         val first = provider.createAccessToken(1)
         val second = provider.createAccessToken(1)
 
-        assertTrue(provider.getJti(first).isNotBlank())
+        assertTrue(provider.getJti(first)!!.isNotBlank())
         assertTrue(provider.getJti(first) != provider.getJti(second))
     }
 
@@ -33,5 +35,19 @@ class JwtTokenProviderTest {
         val remaining = provider.getRemainingValidity(access)
 
         assertTrue(remaining.toMillis() in 1..60_000)
+    }
+
+    @Test fun `distinguishes access tokens from refresh tokens`() {
+        val access = provider.createAccessToken(1)
+        val refresh = provider.createRefreshToken(1)
+
+        assertNotNull(provider.parseAccessToken(access))
+        assertNull(provider.parseAccessToken(refresh))
+        assertFalse(provider.isRefreshToken(access))
+        assertTrue(provider.isRefreshToken(refresh))
+    }
+
+    @Test fun `access token max ttl matches the configured access token expiration`() {
+        assertEquals(60_000L, provider.getAccessTokenMaxTtl().toMillis())
     }
 }
