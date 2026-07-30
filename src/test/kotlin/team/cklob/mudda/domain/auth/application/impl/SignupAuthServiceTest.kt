@@ -5,7 +5,6 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
-import org.springframework.test.util.ReflectionTestUtils
 import team.cklob.mudda.domain.auth.presentation.request.SignupAuthRequest
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
@@ -19,13 +18,10 @@ class SignupAuthServiceTest {
     private val memberRepository = mockk<MemberRepository>()
     private val service = SignupAuthService(memberRepository)
 
-    private val request = SignupAuthRequest(name = "name", nickname = "nickname", gender = Gender.MALE, age = 20)
+    private val request = SignupAuthRequest(name = "name", nickname = "nickname", gender = Gender.MALE, birthYear = 2000)
 
-    private fun incompleteMember(): Member {
-        val member = Member(email = "user@example.com", oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = "PUBLIC")
-        ReflectionTestUtils.setField(member, "id", 1L)
-        return member
-    }
+    private fun incompleteMember(): Member =
+        Member(email = "user@example.com", oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = "PUBLIC", id = 1L)
 
     @Test fun `completes signup for an incomplete member`() {
         val member = incompleteMember()
@@ -37,7 +33,7 @@ class SignupAuthServiceTest {
         assertEquals("name", member.name)
         assertEquals("nickname", member.nickname)
         assertEquals(Gender.MALE, member.gender)
-        assertEquals(20, member.age)
+        assertEquals(2000, member.birthYear)
     }
 
     @Test fun `rejects signup for a member that already completed it`() {

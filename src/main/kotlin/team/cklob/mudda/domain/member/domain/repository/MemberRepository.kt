@@ -10,6 +10,5 @@ interface MemberRepository : JpaRepository<Member, Long> {
 	fun existsByNickname(nickname: String): Boolean
 	fun findByEmail(email: String): Optional<Member>
 	fun findByNickname(nickname: String): Optional<Member>
-	fun findByOauthProviderAndProviderIdAndWithdrawnAtIsNull(oauthProvider: OAuthProvider, providerId: String): Optional<Member>
-	fun existsByOauthProviderAndProviderIdAndWithdrawnAtIsNotNull(oauthProvider: OAuthProvider, providerId: String): Boolean
+	fun findByOauthProviderAndProviderId(oauthProvider: OAuthProvider, providerId: String): Optional<Member>
 }

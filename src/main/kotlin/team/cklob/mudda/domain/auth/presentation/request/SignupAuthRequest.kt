@@ -1,5 +1,7 @@
 package team.cklob.mudda.domain.auth.presentation.request
 
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import team.cklob.mudda.domain.member.domain.type.Gender
@@ -15,5 +17,7 @@ data class SignupAuthRequest(
 
     val gender: Gender,
 
-    val age: Int,
+    @field:Min(1900)
+    @field:Max(2100)
+    val birthYear: Int,
 )

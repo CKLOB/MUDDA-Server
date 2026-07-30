@@ -22,21 +22,24 @@ class Member(
 	@Column(unique = true, length = 30)
 	var nickname: String? = null,
 
-	@Column(nullable = false, unique = true, length = 255)
+	@Column(nullable = false, length = 255)
 	var email: String,
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "oauth_provider", nullable = false, length = 20)
 	val oauthProvider: OAuthProvider,
 
+	// Mutable so a withdrawn row can be tombstoned (see LoginAuthService rejoin flow), freeing up
+	// uq_member_oauth_provider_provider_id for a fresh signup with the same real provider id.
 	@Column(name = "provider_id", nullable = false, length = 255)
-	val providerId: String,
+	var providerId: String,
 
 	@Enumerated(EnumType.STRING)
 	@Column(length = 10)
 	var gender: Gender? = null,
 
-	var age: Int? = null,
+	@Column(name = "birth_year")
+	var birthYear: Int? = null,
 
 	@Column(name = "profile_image_url", length = 255)
 	var profileImageUrl: String? = null,

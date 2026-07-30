@@ -21,6 +21,6 @@ class SignupAuthService(
         member.name = request.name
         member.nickname = request.nickname
         member.gender = request.gender
-        member.age = request.age
+        member.birthYear = request.birthYear
     }
 }

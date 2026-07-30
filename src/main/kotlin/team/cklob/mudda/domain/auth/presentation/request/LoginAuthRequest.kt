@@ -7,5 +7,5 @@ data class LoginAuthRequest(
     val code: String,
 
     @field:NotBlank
-    val providerUri: String,
+    val redirectUri: String,
 )
