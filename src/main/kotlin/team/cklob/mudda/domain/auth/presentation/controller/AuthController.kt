@@ -24,7 +24,9 @@ import team.cklob.mudda.domain.auth.presentation.response.ReissueAuthResponse
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
 import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.exception.ErrorCode
+import team.cklob.mudda.global.response.ApiResponse
 import team.cklob.mudda.global.security.LoginUser
+import team.cklob.mudda.global.util.BearerToken
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -39,7 +41,7 @@ class AuthController(
     fun oauthLogin(
         @PathVariable provider: OAuthProvider,
         @Valid @RequestBody request: LoginAuthRequest,
-    ): ResponseEntity<LoginAuthResponse> = ResponseEntity.ok(loginAuthService.execute(provider, request))
+    ): ResponseEntity<ApiResponse<LoginAuthResponse>> = ResponseEntity.ok(ApiResponse.success(loginAuthService.execute(provider, request)))
 
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
@@ -48,8 +50,8 @@ class AuthController(
     }
 
     @PatchMapping("/reissue")
-    fun reissue(@RequestHeader("refreshToken") refreshTokenHeader: String): ResponseEntity<ReissueAuthResponse> =
-        ResponseEntity.ok(reissueAuthService.execute(extractBearerToken(refreshTokenHeader)))
+    fun reissue(@RequestHeader("refreshToken") refreshTokenHeader: String): ResponseEntity<ApiResponse<ReissueAuthResponse>> =
+        ResponseEntity.ok(ApiResponse.success(reissueAuthService.execute(extractBearerToken(refreshTokenHeader))))
 
     @DeleteMapping("/signout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -63,6 +65,5 @@ class AuthController(
         withdrawAuthService.execute(memberId, extractBearerToken(authorization))
     }
 
-    private fun extractBearerToken(header: String): String =
-        header.takeIf { it.startsWith("Bearer ") }?.substring(7) ?: throw AuthException(ErrorCode.INVALID_TOKEN)
+    private fun extractBearerToken(header: String): String = BearerToken.extract(header) ?: throw AuthException(ErrorCode.INVALID_TOKEN)
 }

@@ -44,29 +44,32 @@ class AuthControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired pri
 
     @Test fun `oauth login endpoint is public and returns the service result`() {
         every { accessTokenBlacklist.isBlacklisted(any()) } returns false
+        every { accessTokenBlacklist.isRevoked(any(), any()) } returns false
         every { loginAuthService.execute(OAuthProvider.GOOGLE, LoginAuthRequest("auth-code", "https://app.mudda.com/oauth/callback")) } returns
             LoginAuthResponse(accessToken = "access-token", refreshToken = "refresh-token", isNewMember = true)
 
         mockMvc.perform(
             post("/api/v1/auth/oauth/GOOGLE")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"code":"auth-code","providerUri":"https://app.mudda.com/oauth/callback"}"""),
+                .content("""{"code":"auth-code","redirectUri":"https://app.mudda.com/oauth/callback"}"""),
         )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.accessToken").value("access-token"))
-            .andExpect(jsonPath("$.isNewMember").value(true))
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+            .andExpect(jsonPath("$.data.isNewMember").value(true))
     }
 
     @Test fun `signup endpoint requires authentication`() {
         mockMvc.perform(
             post("/api/v1/auth/signup")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"name":"name","nickname":"nickname","gender":"MALE","age":20}"""),
+                .content("""{"name":"name","nickname":"nickname","gender":"MALE","birthYear":2000}"""),
         ).andExpect(status().isUnauthorized)
     }
 
     @Test fun `signup endpoint returns 201 with no body when authenticated`() {
         every { accessTokenBlacklist.isBlacklisted(any()) } returns false
+        every { accessTokenBlacklist.isRevoked(any(), any()) } returns false
         every { signupAuthService.execute(1L, any()) } just runs
         val accessToken = jwtTokenProvider.createAccessToken(1L)
 
@@ -74,7 +77,7 @@ class AuthControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired pri
             post("/api/v1/auth/signup")
                 .header("Authorization", "Bearer $accessToken")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"name":"name","nickname":"nickname","gender":"MALE","age":20}"""),
+                .content("""{"name":"name","nickname":"nickname","gender":"MALE","birthYear":2000}"""),
         )
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$").doesNotExist())
@@ -85,11 +88,12 @@ class AuthControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired pri
 
         mockMvc.perform(patch("/api/v1/auth/reissue").header("refreshToken", "Bearer raw-refresh-token"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.accessToken").value("new-access-token"))
+            .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
     }
 
     @Test fun `signout endpoint requires authentication and returns 204`() {
         every { accessTokenBlacklist.isBlacklisted(any()) } returns false
+        every { accessTokenBlacklist.isRevoked(any(), any()) } returns false
         every { signoutAuthService.execute(1L, any()) } just runs
         val accessToken = jwtTokenProvider.createAccessToken(1L)
 
@@ -99,6 +103,7 @@ class AuthControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired pri
 
     @Test fun `withdraw endpoint requires authentication and returns 204`() {
         every { accessTokenBlacklist.isBlacklisted(any()) } returns false
+        every { accessTokenBlacklist.isRevoked(any(), any()) } returns false
         every { withdrawAuthService.execute(1L, any()) } just runs
         val accessToken = jwtTokenProvider.createAccessToken(1L)
 
