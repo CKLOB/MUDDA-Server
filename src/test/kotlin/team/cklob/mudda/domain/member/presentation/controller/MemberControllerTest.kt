@@ -1,0 +1,145 @@
+package team.cklob.mudda.domain.member.presentation.controller
+
+import com.ninjasquad.springmockk.MockkBean
+import io.mockk.every
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.context.annotation.Import
+import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext
+import org.springframework.http.MediaType
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import team.cklob.mudda.domain.friend.domain.type.FriendStatus
+import team.cklob.mudda.domain.member.application.impl.GetMemberProfileService
+import team.cklob.mudda.domain.member.application.impl.GetMyMemberService
+import team.cklob.mudda.domain.member.application.impl.UpdateMyMemberService
+import team.cklob.mudda.domain.member.domain.type.Gender
+import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
+import team.cklob.mudda.domain.member.presentation.request.UpdateMyMemberRequest
+import team.cklob.mudda.domain.member.presentation.response.MemberProfileResponse
+import team.cklob.mudda.domain.member.presentation.response.MyMemberResponse
+import team.cklob.mudda.global.config.SecurityConfig
+import team.cklob.mudda.global.exception.BusinessException
+import team.cklob.mudda.global.exception.ErrorCode
+import team.cklob.mudda.global.security.AccessTokenBlacklist
+import team.cklob.mudda.global.security.JwtTokenProvider
+import java.time.LocalDateTime
+
+@WebMvcTest(controllers = [MemberController::class], properties = [
+	"jwt.secret=local-test-secret-must-be-at-least-32-bytes",
+])
+@Import(SecurityConfig::class, JwtTokenProvider::class)
+class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired private val jwtTokenProvider: JwtTokenProvider) {
+	@MockkBean lateinit var jpaMappingContext: JpaMetamodelMappingContext
+	@MockkBean lateinit var accessTokenBlacklist: AccessTokenBlacklist
+	@MockkBean lateinit var getMyMemberService: GetMyMemberService
+	@MockkBean lateinit var updateMyMemberService: UpdateMyMemberService
+	@MockkBean lateinit var getMemberProfileService: GetMemberProfileService
+
+	private val now: LocalDateTime = LocalDateTime.now()
+
+	private fun accessTokenFor(memberId: Long): String {
+		every { accessTokenBlacklist.isBlacklisted(any()) } returns false
+		every { accessTokenBlacklist.isRevoked(any(), any()) } returns false
+		return jwtTokenProvider.createAccessToken(memberId)
+	}
+
+	private fun myMemberResponse() = MyMemberResponse(
+		memberId = 1L, name = "name", nickname = "nickname", gender = Gender.MALE, birthYear = 2000,
+		profileImageUrl = null, bio = null, profileVisibility = ProfileVisibility.PUBLIC, createdAt = now, updatedAt = now,
+	)
+
+	@Test fun `getMe requires authentication`() {
+		mockMvc.perform(get("/api/v1/member/me")).andExpect(status().isUnauthorized)
+	}
+
+	@Test fun `getMe returns the authenticated member's data wrapped in the common envelope`() {
+		val token = accessTokenFor(1L)
+		every { getMyMemberService.execute(1L) } returns myMemberResponse()
+
+		mockMvc.perform(get("/api/v1/member/me").header("Authorization", "Bearer $token"))
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.success").value(true))
+			.andExpect(jsonPath("$.data.memberId").value(1))
+			.andExpect(jsonPath("$.data.nickname").value("nickname"))
+	}
+
+	@Test fun `updateMe rejects an out-of-range birthYear before reaching the service`() {
+		val token = accessTokenFor(1L)
+
+		mockMvc.perform(
+			patch("/api/v1/member/me")
+				.header("Authorization", "Bearer $token")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"birthYear":1800}"""),
+		).andExpect(status().isBadRequest)
+	}
+
+	@Test fun `updateMe returns the saved member's data`() {
+		val token = accessTokenFor(1L)
+		every { updateMyMemberService.execute(1L, UpdateMyMemberRequest(bio = "new bio")) } returns myMemberResponse().copy(bio = "new bio")
+
+		mockMvc.perform(
+			patch("/api/v1/member/me")
+				.header("Authorization", "Bearer $token")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"bio":"new bio"}"""),
+		)
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.data.bio").value("new bio"))
+	}
+
+	@Test fun `updateMe returns 409 when the nickname is already taken`() {
+		val token = accessTokenFor(1L)
+		every { updateMyMemberService.execute(1L, UpdateMyMemberRequest(nickname = "taken")) } throws BusinessException(ErrorCode.NICKNAME_ALREADY_EXISTS)
+
+		mockMvc.perform(
+			patch("/api/v1/member/me")
+				.header("Authorization", "Bearer $token")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"nickname":"taken"}"""),
+		)
+			.andExpect(status().isConflict)
+			.andExpect(jsonPath("$.error.code").value("M001"))
+	}
+
+	@Test fun `getProfile requires authentication`() {
+		mockMvc.perform(get("/api/v1/member/2")).andExpect(status().isUnauthorized)
+	}
+
+	@Test fun `getProfile passes the authenticated viewer id and the path member id to the service`() {
+		val token = accessTokenFor(1L)
+		every { getMemberProfileService.execute(1L, 2L) } returns MemberProfileResponse(
+			memberId = 2L, name = "other", nickname = "other-nick", gender = Gender.FEMALE, birthYear = 1999,
+			profileImageUrl = null, bio = null, friendStatus = FriendStatus.NONE, createdAt = now,
+		)
+
+		mockMvc.perform(get("/api/v1/member/2").header("Authorization", "Bearer $token"))
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.data.memberId").value(2))
+			.andExpect(jsonPath("$.data.friendStatus").value("NONE"))
+	}
+
+	@Test fun `getProfile returns 404 when the member does not exist`() {
+		val token = accessTokenFor(1L)
+		every { getMemberProfileService.execute(1L, 99L) } throws BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+
+		mockMvc.perform(get("/api/v1/member/99").header("Authorization", "Bearer $token"))
+			.andExpect(status().isNotFound)
+			.andExpect(jsonPath("$.success").value(false))
+			.andExpect(jsonPath("$.error.code").value("M002"))
+	}
+
+	@Test fun `getProfile returns 403 when the profile is not accessible`() {
+		val token = accessTokenFor(1L)
+		every { getMemberProfileService.execute(1L, 2L) } throws BusinessException(ErrorCode.PROFILE_ACCESS_DENIED)
+
+		mockMvc.perform(get("/api/v1/member/2").header("Authorization", "Bearer $token"))
+			.andExpect(status().isForbidden)
+			.andExpect(jsonPath("$.error.code").value("M003"))
+	}
+}
