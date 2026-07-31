@@ -19,6 +19,9 @@ class UpdateMyMemberService(
 
 		val member = memberRepository.findById(memberId).orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
 		if (member.withdrawnAt != null) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+		// Without this gate, an OAuth-logged-in member who never called /auth/signup could set only a
+		// nickname here and skip the name/gender/birthYear requirements SignupAuthService enforces.
+		if (member.nickname == null) throw BusinessException(ErrorCode.SIGNUP_REQUIRED)
 
 		request.name?.let {
 			if (it.isBlank()) throw BusinessException(ErrorCode.INVALID_INPUT)

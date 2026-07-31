@@ -30,6 +30,11 @@ class UpdateMyMemberServiceTest {
 		profileVisibility = ProfileVisibility.PUBLIC, withdrawnAt = withdrawnAt, id = 1L,
 	)
 
+	private fun incompleteMember() = Member(
+		email = "user@example.com", oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1",
+		profileVisibility = ProfileVisibility.PUBLIC, id = 1L,
+	)
+
 	private fun emptyRequest() = UpdateMyMemberRequest()
 
 	@Test fun `updates only the fields present in the request`() {
@@ -124,6 +129,14 @@ class UpdateMyMemberServiceTest {
 
 		val exception = assertThrows(BusinessException::class.java) { service.execute(1L, request) }
 		assertEquals(ErrorCode.MEMBER_NOT_FOUND, exception.errorCode)
+	}
+
+	@Test fun `rejects updates for a member that has not completed signup`() {
+		every { memberRepository.findById(1L) } returns Optional.of(incompleteMember())
+		val request = emptyRequest().copy(nickname = "new-nickname")
+
+		val exception = assertThrows(BusinessException::class.java) { service.execute(1L, request) }
+		assertEquals(ErrorCode.SIGNUP_REQUIRED, exception.errorCode)
 	}
 
 	@Test fun `converts a database-level nickname race into a conflict`() {
