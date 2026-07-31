@@ -31,15 +31,13 @@ class GetMemberProfileService(
 		return MemberProfileResponse.of(member, friendStatus)
 	}
 
+	// A requester/receiver pair can have relationship rows in both directions (see FriendRepository), so an
+	// ACCEPTED row always wins over a stray PENDING row for the same pair.
 	private fun resolveFriendStatus(viewerId: Long, memberId: Long): FriendStatus {
-		val friend = friendRepository
-			.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(viewerId, memberId, memberId, viewerId)
-			.orElse(null) ?: return FriendStatus.NONE
+		val relations = friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(viewerId, memberId, memberId, viewerId)
+		if (relations.any { it.status == FriendRequestStatus.ACCEPTED }) return FriendStatus.FRIEND
 
-		return when (friend.status) {
-			FriendRequestStatus.ACCEPTED -> FriendStatus.FRIEND
-			FriendRequestStatus.REJECTED -> FriendStatus.NONE
-			FriendRequestStatus.PENDING -> if (friend.requester.id == viewerId) FriendStatus.REQUESTED else FriendStatus.RECEIVED
-		}
+		val pending = relations.firstOrNull { it.status == FriendRequestStatus.PENDING } ?: return FriendStatus.NONE
+		return if (pending.requester.id == viewerId) FriendStatus.REQUESTED else FriendStatus.RECEIVED
 	}
 }

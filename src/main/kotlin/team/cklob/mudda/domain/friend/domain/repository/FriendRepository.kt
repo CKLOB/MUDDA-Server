@@ -9,10 +9,13 @@ interface FriendRepository : JpaRepository<Friend, Long> {
 	fun findByRequesterIdAndReceiverId(requesterId: Long, receiverId: Long): Optional<Friend>
 	fun existsByRequesterIdAndReceiverId(requesterId: Long, receiverId: Long): Boolean
 
+	// uq_friend_requester_receiver only blocks a duplicate row in the same direction, so a requester/receiver
+	// pair can still have two rows (e.g. both sides sent a request before either was accepted). Returning a
+	// List keeps that a normal case instead of an Optional throwing IncorrectResultSizeDataAccessException.
 	fun findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(
 		requesterId1: Long,
 		receiverId1: Long,
 		requesterId2: Long,
 		receiverId2: Long,
-	): Optional<Friend>
+	): List<Friend>
 }

@@ -32,7 +32,11 @@ class GetMemberProfileServiceTest {
 	)
 
 	private fun mockNoFriendRelation() {
-		every { friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(1L, 2L, 2L, 1L) } returns Optional.empty()
+		every { friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(1L, 2L, 2L, 1L) } returns emptyList()
+	}
+
+	private fun mockFriendRelation(vararg friends: Friend) {
+		every { friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(1L, 2L, 2L, 1L) } returns friends.toList()
 	}
 
 	@Test fun `returns a PUBLIC profile for another member`() {
@@ -65,7 +69,7 @@ class GetMemberProfileServiceTest {
 	@Test fun `allows a friend to view a FRIEND-visibility profile`() {
 		val friend = Friend(requester = member(1L, ProfileVisibility.PUBLIC), receiver = member(2L, ProfileVisibility.FRIEND), status = FriendRequestStatus.ACCEPTED, id = 10L)
 		every { memberRepository.findById(2L) } returns Optional.of(member(2L, ProfileVisibility.FRIEND))
-		every { friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(1L, 2L, 2L, 1L) } returns Optional.of(friend)
+		mockFriendRelation(friend)
 
 		val response = service.execute(1L, 2L)
 
@@ -83,7 +87,7 @@ class GetMemberProfileServiceTest {
 	@Test fun `returns REQUESTED when the viewer sent the pending friend request`() {
 		val friend = Friend(requester = member(1L, ProfileVisibility.PUBLIC), receiver = member(2L, ProfileVisibility.PUBLIC), status = FriendRequestStatus.PENDING, id = 10L)
 		every { memberRepository.findById(2L) } returns Optional.of(member(2L, ProfileVisibility.PUBLIC))
-		every { friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(1L, 2L, 2L, 1L) } returns Optional.of(friend)
+		mockFriendRelation(friend)
 
 		val response = service.execute(1L, 2L)
 
@@ -93,7 +97,7 @@ class GetMemberProfileServiceTest {
 	@Test fun `returns RECEIVED when the viewer received the pending friend request`() {
 		val friend = Friend(requester = member(2L, ProfileVisibility.PUBLIC), receiver = member(1L, ProfileVisibility.PUBLIC), status = FriendRequestStatus.PENDING, id = 10L)
 		every { memberRepository.findById(2L) } returns Optional.of(member(2L, ProfileVisibility.PUBLIC))
-		every { friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(1L, 2L, 2L, 1L) } returns Optional.of(friend)
+		mockFriendRelation(friend)
 
 		val response = service.execute(1L, 2L)
 
@@ -103,7 +107,7 @@ class GetMemberProfileServiceTest {
 	@Test fun `returns FRIEND for an accepted relationship`() {
 		val friend = Friend(requester = member(1L, ProfileVisibility.PUBLIC), receiver = member(2L, ProfileVisibility.PUBLIC), status = FriendRequestStatus.ACCEPTED, id = 10L)
 		every { memberRepository.findById(2L) } returns Optional.of(member(2L, ProfileVisibility.PUBLIC))
-		every { friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(1L, 2L, 2L, 1L) } returns Optional.of(friend)
+		mockFriendRelation(friend)
 
 		val response = service.execute(1L, 2L)
 
@@ -122,11 +126,22 @@ class GetMemberProfileServiceTest {
 	@Test fun `returns NONE when the prior request was rejected`() {
 		val friend = Friend(requester = member(1L, ProfileVisibility.PUBLIC), receiver = member(2L, ProfileVisibility.PUBLIC), status = FriendRequestStatus.REJECTED, id = 10L)
 		every { memberRepository.findById(2L) } returns Optional.of(member(2L, ProfileVisibility.PUBLIC))
-		every { friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(1L, 2L, 2L, 1L) } returns Optional.of(friend)
+		mockFriendRelation(friend)
 
 		val response = service.execute(1L, 2L)
 
 		assertEquals(FriendStatus.NONE, response.friendStatus)
+	}
+
+	@Test fun `prefers ACCEPTED when both directions have a relationship row for the same pair`() {
+		val stalePending = Friend(requester = member(2L, ProfileVisibility.PUBLIC), receiver = member(1L, ProfileVisibility.PUBLIC), status = FriendRequestStatus.PENDING, id = 10L)
+		val accepted = Friend(requester = member(1L, ProfileVisibility.PUBLIC), receiver = member(2L, ProfileVisibility.PUBLIC), status = FriendRequestStatus.ACCEPTED, id = 11L)
+		every { memberRepository.findById(2L) } returns Optional.of(member(2L, ProfileVisibility.PUBLIC))
+		mockFriendRelation(stalePending, accepted)
+
+		val response = service.execute(1L, 2L)
+
+		assertEquals(FriendStatus.FRIEND, response.friendStatus)
 	}
 
 	@Test fun `rejects a withdrawn member's profile`() {
