@@ -2,6 +2,7 @@ package team.cklob.mudda.global.exception
 
 import org.springframework.http.ResponseEntity
 import org.springframework.http.MediaType
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -16,6 +17,12 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(e: MethodArgumentNotValidException) = response(ErrorCode.INVALID_INPUT)
+
+    // Missing/malformed request bodies (e.g. a non-null Kotlin field omitted) fail Jackson
+    // deserialization before validation even runs, and would otherwise fall through to the
+    // catch-all 500 handler below.
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleNotReadable(e: HttpMessageNotReadableException) = response(ErrorCode.INVALID_INPUT)
 
     @ExceptionHandler(Exception::class)
     fun handleException(e: Exception): ResponseEntity<ApiResponse<Nothing>> {

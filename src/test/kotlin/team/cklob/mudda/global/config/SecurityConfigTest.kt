@@ -1,10 +1,12 @@
 package team.cklob.mudda.global.config
 
+import io.mockk.every
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
 import org.springframework.context.annotation.Import
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext
 import com.ninjasquad.springmockk.MockkBean
+import team.cklob.mudda.global.security.AccessTokenBlacklist
 import team.cklob.mudda.global.security.JwtTokenProvider
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
@@ -19,8 +21,11 @@ import org.springframework.web.bind.annotation.RestController
 @Import(SecurityConfig::class, JwtTokenProvider::class)
 class SecurityConfigTest(@Autowired private val mockMvc: MockMvc, @Autowired private val jwtTokenProvider: JwtTokenProvider) {
     @MockkBean lateinit var jpaMappingContext: JpaMetamodelMappingContext
+    @MockkBean lateinit var accessTokenBlacklist: AccessTokenBlacklist
 
     @Test fun `permits public map path and rejects protected path without authentication`() {
+        every { accessTokenBlacklist.isBlacklisted(any()) } returns false
+        every { accessTokenBlacklist.isRevoked(any(), any()) } returns false
         mockMvc.perform(get("/api/v1/maps/ping")).andExpect(status().isOk)
         mockMvc.perform(get("/api/v1/private/ping")).andExpect(status().isUnauthorized)
         mockMvc.perform(get("/api/v1/private/ping").header("Authorization", "Bearer ${jwtTokenProvider.createAccessToken(1)}")).andExpect(status().isOk)

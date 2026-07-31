@@ -7,14 +7,22 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource
 import org.springframework.web.filter.OncePerRequestFilter
+import team.cklob.mudda.global.util.BearerToken
 
-class JwtAuthenticationFilter(private val jwtTokenProvider: JwtTokenProvider) : OncePerRequestFilter() {
+class JwtAuthenticationFilter(
+    private val jwtTokenProvider: JwtTokenProvider,
+    private val accessTokenBlacklist: AccessTokenBlacklist,
+) : OncePerRequestFilter() {
     override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
-        request.getHeader("Authorization")?.takeIf { it.startsWith("Bearer ") }?.substring(7)?.takeIf(jwtTokenProvider::validate)?.let { token ->
-            val authentication = UsernamePasswordAuthenticationToken(jwtTokenProvider.getMemberId(token), null, emptyList())
-            authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
-            SecurityContextHolder.getContext().authentication = authentication
-        }
+        BearerToken.extract(request.getHeader("Authorization"))
+            ?.let(jwtTokenProvider::parseAccessToken)
+            ?.takeUnless { claims -> claims.id?.let(accessTokenBlacklist::isBlacklisted) ?: false }
+            ?.takeUnless { claims -> accessTokenBlacklist.isRevoked(claims.subject.toLong(), claims.issuedAt.toInstant()) }
+            ?.let { claims ->
+                val authentication = UsernamePasswordAuthenticationToken(claims.subject.toLong(), null, emptyList())
+                authentication.details = WebAuthenticationDetailsSource().buildDetails(request)
+                SecurityContextHolder.getContext().authentication = authentication
+            }
         filterChain.doFilter(request, response)
     }
 }
