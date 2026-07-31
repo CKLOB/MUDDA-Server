@@ -13,5 +13,7 @@ enum class ErrorCode(val status: HttpStatus, val code: String, val message: Stri
     WITHDRAWN_MEMBER(HttpStatus.FORBIDDEN, "A007", "This account has been withdrawn."),
     ALREADY_SIGNED_UP(HttpStatus.CONFLICT, "A008", "This member has already completed signup."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "M001", "Nickname already exists."),
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "M002", "Member not found."),
+    PROFILE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "M003", "You do not have access to this profile."),
     CAPSULE_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "Time capsule not found."),
 }
