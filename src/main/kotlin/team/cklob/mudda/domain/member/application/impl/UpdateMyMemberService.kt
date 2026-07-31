@@ -25,10 +25,11 @@ class UpdateMyMemberService(
 
 		request.name?.let {
 			if (it.isBlank()) throw BusinessException(ErrorCode.INVALID_INPUT)
-			member.name = it
+			member.name = it.trim()
 		}
-		request.nickname?.let { nickname ->
-			if (nickname.isBlank()) throw BusinessException(ErrorCode.INVALID_INPUT)
+		request.nickname?.let { raw ->
+			if (raw.isBlank()) throw BusinessException(ErrorCode.INVALID_INPUT)
+			val nickname = raw.trim()
 			if (nickname != member.nickname && memberRepository.existsByNickname(nickname)) {
 				throw BusinessException(ErrorCode.NICKNAME_ALREADY_EXISTS)
 			}
@@ -36,14 +37,18 @@ class UpdateMyMemberService(
 		}
 		request.gender?.let { member.gender = it }
 		request.birthYear?.let { member.birthYear = it }
-		request.profileImageUrl?.let { member.profileImageUrl = it.ifEmpty { null } }
-		request.bio?.let { member.bio = it.ifEmpty { null } }
+		request.profileImageUrl?.let { member.profileImageUrl = it.trim().ifBlank { null } }
+		request.bio?.let { member.bio = it.trim().ifBlank { null } }
 		request.profileVisibility?.let { member.profileVisibility = it }
 
 		val saved = try {
 			memberRepository.saveAndFlush(member)
 		} catch (e: DataIntegrityViolationException) {
-			throw BusinessException(ErrorCode.NICKNAME_ALREADY_EXISTS)
+			// The only unique constraint reachable in this transaction today is uq_member_nickname, but only
+			// translate to a 409 when a nickname change was actually requested so an unrelated future
+			// constraint doesn't get misreported as a nickname conflict.
+			if (request.nickname != null) throw BusinessException(ErrorCode.NICKNAME_ALREADY_EXISTS)
+			throw e
 		}
 
 		return MyMemberResponse.from(saved)

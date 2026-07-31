@@ -27,6 +27,7 @@ data class UpdateMyMemberRequest(
 
 	val profileVisibility: ProfileVisibility? = null,
 ) {
+	// Add new fields to this comparison too, or an all-null request for the new field would silently pass.
 	fun isEmpty(): Boolean =
 		name == null && nickname == null && gender == null && birthYear == null &&
 			profileImageUrl == null && bio == null && profileVisibility == null

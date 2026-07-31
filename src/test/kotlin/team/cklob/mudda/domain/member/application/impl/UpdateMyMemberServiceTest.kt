@@ -109,6 +109,35 @@ class UpdateMyMemberServiceTest {
 		assertNull(response.profileImageUrl)
 	}
 
+	@Test fun `normalizes a whitespace-only bio and profileImageUrl to null`() {
+		val member = member()
+		every { memberRepository.findById(1L) } returns Optional.of(member)
+		every { memberRepository.saveAndFlush(member) } returns member
+		val request = emptyRequest().copy(bio = "   ", profileImageUrl = "   ")
+
+		val response = service.execute(1L, request)
+
+		assertNull(response.bio)
+		assertNull(response.profileImageUrl)
+	}
+
+	@Test fun `trims surrounding whitespace from name, nickname, bio and profileImageUrl`() {
+		val member = member()
+		every { memberRepository.findById(1L) } returns Optional.of(member)
+		every { memberRepository.existsByNickname("new-nickname") } returns false
+		every { memberRepository.saveAndFlush(member) } returns member
+		val request = emptyRequest().copy(
+			name = "  new name  ", nickname = "  new-nickname  ", bio = "  new bio  ", profileImageUrl = "  https://img.example.com/new.png  ",
+		)
+
+		val response = service.execute(1L, request)
+
+		assertEquals("new name", response.name)
+		assertEquals("new-nickname", response.nickname)
+		assertEquals("new bio", response.bio)
+		assertEquals("https://img.example.com/new.png", response.profileImageUrl)
+	}
+
 	@Test fun `does not touch auth-owned fields`() {
 		val member = member()
 		every { memberRepository.findById(1L) } returns Optional.of(member)
@@ -149,5 +178,14 @@ class UpdateMyMemberServiceTest {
 		val exception = assertThrows(BusinessException::class.java) { service.execute(1L, request) }
 		assertEquals(ErrorCode.NICKNAME_ALREADY_EXISTS, exception.errorCode)
 		verify { memberRepository.saveAndFlush(member) }
+	}
+
+	@Test fun `rethrows a database-level violation unrelated to the nickname`() {
+		val member = member()
+		every { memberRepository.findById(1L) } returns Optional.of(member)
+		every { memberRepository.saveAndFlush(member) } throws DataIntegrityViolationException("some other constraint")
+		val request = emptyRequest().copy(bio = "new bio")
+
+		assertThrows(DataIntegrityViolationException::class.java) { service.execute(1L, request) }
 	}
 }
