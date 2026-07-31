@@ -66,6 +66,15 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.memberId").value(1))
 			.andExpect(jsonPath("$.data.nickname").value("nickname"))
+			.andExpect(jsonPath("$.data.email").doesNotExist())
+			.andExpect(jsonPath("$.data.oauthProvider").doesNotExist())
+			.andExpect(jsonPath("$.data.providerId").doesNotExist())
+	}
+
+	@Test fun `updateMe requires authentication`() {
+		mockMvc.perform(
+			patch("/api/v1/member/me").contentType(MediaType.APPLICATION_JSON).content("""{"bio":"new bio"}"""),
+		).andExpect(status().isUnauthorized)
 	}
 
 	@Test fun `updateMe rejects an out-of-range birthYear before reaching the service`() {
@@ -122,6 +131,9 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 			.andExpect(status().isOk)
 			.andExpect(jsonPath("$.data.memberId").value(2))
 			.andExpect(jsonPath("$.data.friendStatus").value("NONE"))
+			.andExpect(jsonPath("$.data.email").doesNotExist())
+			.andExpect(jsonPath("$.data.oauthProvider").doesNotExist())
+			.andExpect(jsonPath("$.data.providerId").doesNotExist())
 	}
 
 	@Test fun `getProfile returns 404 when the member does not exist`() {
