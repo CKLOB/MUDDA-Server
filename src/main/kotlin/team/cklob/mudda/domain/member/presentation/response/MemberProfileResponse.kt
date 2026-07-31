@@ -7,7 +7,6 @@ import java.time.LocalDateTime
 
 data class MemberProfileResponse(
 	val memberId: Long,
-	val name: String?,
 	val nickname: String?,
 	val gender: Gender?,
 	val birthYear: Int?,
@@ -19,7 +18,6 @@ data class MemberProfileResponse(
 	companion object {
 		fun of(member: Member, friendStatus: FriendStatus) = MemberProfileResponse(
 			memberId = requireNotNull(member.id),
-			name = member.name,
 			nickname = member.nickname,
 			gender = member.gender,
 			birthYear = member.birthYear,

@@ -54,14 +54,14 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 	)
 
 	@Test fun `getMe requires authentication`() {
-		mockMvc.perform(get("/api/v1/member/me")).andExpect(status().isUnauthorized)
+		mockMvc.perform(get("/api/v1/members/me")).andExpect(status().isUnauthorized)
 	}
 
 	@Test fun `getMe returns the authenticated member's data wrapped in the common envelope`() {
 		val token = accessTokenFor(1L)
 		every { getMyMemberService.execute(1L) } returns myMemberResponse()
 
-		mockMvc.perform(get("/api/v1/member/me").header("Authorization", "Bearer $token"))
+		mockMvc.perform(get("/api/v1/members/me").header("Authorization", "Bearer $token"))
 			.andExpect(status().isOk)
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.memberId").value(1))
@@ -73,7 +73,7 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 
 	@Test fun `updateMe requires authentication`() {
 		mockMvc.perform(
-			patch("/api/v1/member/me").contentType(MediaType.APPLICATION_JSON).content("""{"bio":"new bio"}"""),
+			patch("/api/v1/members/me").contentType(MediaType.APPLICATION_JSON).content("""{"bio":"new bio"}"""),
 		).andExpect(status().isUnauthorized)
 	}
 
@@ -81,7 +81,7 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 		val token = accessTokenFor(1L)
 
 		mockMvc.perform(
-			patch("/api/v1/member/me")
+			patch("/api/v1/members/me")
 				.header("Authorization", "Bearer $token")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""{"birthYear":1800}"""),
@@ -93,7 +93,7 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 		every { updateMyMemberService.execute(1L, UpdateMyMemberRequest(bio = "new bio")) } returns myMemberResponse().copy(bio = "new bio")
 
 		mockMvc.perform(
-			patch("/api/v1/member/me")
+			patch("/api/v1/members/me")
 				.header("Authorization", "Bearer $token")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""{"bio":"new bio"}"""),
@@ -107,7 +107,7 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 		every { updateMyMemberService.execute(1L, UpdateMyMemberRequest(nickname = "taken")) } throws BusinessException(ErrorCode.NICKNAME_ALREADY_EXISTS)
 
 		mockMvc.perform(
-			patch("/api/v1/member/me")
+			patch("/api/v1/members/me")
 				.header("Authorization", "Bearer $token")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""{"nickname":"taken"}"""),
@@ -117,20 +117,21 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 	}
 
 	@Test fun `getProfile requires authentication`() {
-		mockMvc.perform(get("/api/v1/member/2")).andExpect(status().isUnauthorized)
+		mockMvc.perform(get("/api/v1/members/2")).andExpect(status().isUnauthorized)
 	}
 
 	@Test fun `getProfile passes the authenticated viewer id and the path member id to the service`() {
 		val token = accessTokenFor(1L)
 		every { getMemberProfileService.execute(1L, 2L) } returns MemberProfileResponse(
-			memberId = 2L, name = "other", nickname = "other-nick", gender = Gender.FEMALE, birthYear = 1999,
+			memberId = 2L, nickname = "other-nick", gender = Gender.FEMALE, birthYear = 1999,
 			profileImageUrl = null, bio = null, friendStatus = FriendStatus.NONE, createdAt = now,
 		)
 
-		mockMvc.perform(get("/api/v1/member/2").header("Authorization", "Bearer $token"))
+		mockMvc.perform(get("/api/v1/members/2").header("Authorization", "Bearer $token"))
 			.andExpect(status().isOk)
 			.andExpect(jsonPath("$.data.memberId").value(2))
 			.andExpect(jsonPath("$.data.friendStatus").value("NONE"))
+			.andExpect(jsonPath("$.data.name").doesNotExist())
 			.andExpect(jsonPath("$.data.email").doesNotExist())
 			.andExpect(jsonPath("$.data.oauthProvider").doesNotExist())
 			.andExpect(jsonPath("$.data.providerId").doesNotExist())
@@ -140,7 +141,7 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 		val token = accessTokenFor(1L)
 		every { getMemberProfileService.execute(1L, 99L) } throws BusinessException(ErrorCode.MEMBER_NOT_FOUND)
 
-		mockMvc.perform(get("/api/v1/member/99").header("Authorization", "Bearer $token"))
+		mockMvc.perform(get("/api/v1/members/99").header("Authorization", "Bearer $token"))
 			.andExpect(status().isNotFound)
 			.andExpect(jsonPath("$.success").value(false))
 			.andExpect(jsonPath("$.error.code").value("M002"))
@@ -150,8 +151,16 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 		val token = accessTokenFor(1L)
 		every { getMemberProfileService.execute(1L, 2L) } throws BusinessException(ErrorCode.PROFILE_ACCESS_DENIED)
 
-		mockMvc.perform(get("/api/v1/member/2").header("Authorization", "Bearer $token"))
+		mockMvc.perform(get("/api/v1/members/2").header("Authorization", "Bearer $token"))
 			.andExpect(status().isForbidden)
 			.andExpect(jsonPath("$.error.code").value("M003"))
+	}
+
+	@Test fun `getProfile returns 400 for a non-numeric memberId instead of a 500`() {
+		val token = accessTokenFor(1L)
+
+		mockMvc.perform(get("/api/v1/members/abc").header("Authorization", "Bearer $token"))
+			.andExpect(status().isBadRequest)
+			.andExpect(jsonPath("$.error.code").value("C001"))
 	}
 }
