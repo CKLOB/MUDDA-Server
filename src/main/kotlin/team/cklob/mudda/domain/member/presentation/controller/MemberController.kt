@@ -18,7 +18,7 @@ import team.cklob.mudda.global.response.ApiResponse
 import team.cklob.mudda.global.security.LoginUser
 
 @RestController
-@RequestMapping("/api/v1/member")
+@RequestMapping("/api/v1/members")
 class MemberController(
 	private val getMyMemberService: GetMyMemberService,
 	private val updateMyMemberService: UpdateMyMemberService,
