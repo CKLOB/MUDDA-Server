@@ -11,6 +11,7 @@ import team.cklob.mudda.domain.auth.application.RefreshTokenStore
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
+import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.global.security.AccessTokenBlacklist
 import team.cklob.mudda.global.security.JwtTokenProvider
 import java.time.Duration
@@ -26,7 +27,7 @@ class WithdrawAuthServiceTest {
     @Test fun `soft deletes and anonymizes the member, then revokes tokens`() {
         val member = Member(
             name = "name", nickname = "nickname", email = "user@example.com",
-            oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = "PUBLIC", id = 1L,
+            oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = ProfileVisibility.PUBLIC, id = 1L,
         )
         every { memberRepository.findById(1L) } returns Optional.of(member)
         every { jwtTokenProvider.getJti("access-token") } returns "jti-1"

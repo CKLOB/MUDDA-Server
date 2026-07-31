@@ -15,6 +15,7 @@ import team.cklob.mudda.domain.auth.presentation.request.LoginAuthRequest
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
+import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.security.JwtTokenProvider
 import java.time.LocalDateTime
@@ -32,7 +33,7 @@ class LoginAuthServiceTest {
 
     private fun member(id: Long, withdrawnAt: LocalDateTime? = null, providerId: String = "google-sub-1") = Member(
         email = "user@example.com", oauthProvider = OAuthProvider.GOOGLE, providerId = providerId,
-        profileVisibility = "PUBLIC", withdrawnAt = withdrawnAt, id = id,
+        profileVisibility = ProfileVisibility.PUBLIC, withdrawnAt = withdrawnAt, id = id,
     )
 
     @Test fun `issues tokens for an existing fully signed up member`() {
