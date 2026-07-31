@@ -10,6 +10,7 @@ import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.domain.type.Gender
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
 import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
+import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.exception.BusinessException
 import team.cklob.mudda.global.exception.ErrorCode
 import java.time.LocalDateTime
@@ -44,14 +45,14 @@ class GetMyMemberServiceTest {
 	@Test fun `rejects a member id that does not exist`() {
 		every { memberRepository.findById(1L) } returns Optional.empty()
 
-		val exception = assertThrows(BusinessException::class.java) { service.execute(1L) }
-		assertEquals(ErrorCode.MEMBER_NOT_FOUND, exception.errorCode)
+		val exception = assertThrows(AuthException::class.java) { service.execute(1L) }
+		assertEquals(ErrorCode.UNAUTHORIZED, exception.errorCode)
 	}
 
 	@Test fun `rejects a withdrawn member`() {
 		every { memberRepository.findById(1L) } returns Optional.of(member(withdrawnAt = LocalDateTime.now()))
 
 		val exception = assertThrows(BusinessException::class.java) { service.execute(1L) }
-		assertEquals(ErrorCode.MEMBER_NOT_FOUND, exception.errorCode)
+		assertEquals(ErrorCode.WITHDRAWN_MEMBER, exception.errorCode)
 	}
 }

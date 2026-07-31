@@ -14,6 +14,7 @@ import team.cklob.mudda.domain.member.domain.type.Gender
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
 import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.domain.member.presentation.request.UpdateMyMemberRequest
+import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.exception.BusinessException
 import team.cklob.mudda.global.exception.ErrorCode
 import java.time.LocalDateTime
@@ -157,7 +158,15 @@ class UpdateMyMemberServiceTest {
 		val request = emptyRequest().copy(bio = "new bio")
 
 		val exception = assertThrows(BusinessException::class.java) { service.execute(1L, request) }
-		assertEquals(ErrorCode.MEMBER_NOT_FOUND, exception.errorCode)
+		assertEquals(ErrorCode.WITHDRAWN_MEMBER, exception.errorCode)
+	}
+
+	@Test fun `rejects updates for a member id that does not exist`() {
+		every { memberRepository.findById(1L) } returns Optional.empty()
+		val request = emptyRequest().copy(bio = "new bio")
+
+		val exception = assertThrows(AuthException::class.java) { service.execute(1L, request) }
+		assertEquals(ErrorCode.UNAUTHORIZED, exception.errorCode)
 	}
 
 	@Test fun `rejects updates for a member that has not completed signup`() {

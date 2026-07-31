@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.presentation.request.UpdateMyMemberRequest
 import team.cklob.mudda.domain.member.presentation.response.MyMemberResponse
+import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.exception.BusinessException
 import team.cklob.mudda.global.exception.ErrorCode
 
@@ -17,8 +18,8 @@ class UpdateMyMemberService(
 	fun execute(memberId: Long, request: UpdateMyMemberRequest): MyMemberResponse {
 		if (request.isEmpty()) throw BusinessException(ErrorCode.INVALID_INPUT)
 
-		val member = memberRepository.findById(memberId).orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
-		if (member.withdrawnAt != null) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+		val member = memberRepository.findById(memberId).orElseThrow { AuthException(ErrorCode.UNAUTHORIZED) }
+		if (member.withdrawnAt != null) throw BusinessException(ErrorCode.WITHDRAWN_MEMBER)
 		// Without this gate, an OAuth-logged-in member who never called /auth/signup could set only a
 		// nickname here and skip the name/gender/birthYear requirements SignupAuthService enforces.
 		if (member.nickname == null) throw BusinessException(ErrorCode.SIGNUP_REQUIRED)
