@@ -10,6 +10,7 @@ import team.cklob.mudda.domain.auth.presentation.response.LoginAuthResponse
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
+import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.exception.ErrorCode
 import team.cklob.mudda.global.security.JwtTokenProvider
@@ -60,11 +61,10 @@ class LoginAuthService(
         email = userInfo.email,
         oauthProvider = userInfo.provider,
         providerId = userInfo.providerId,
-        profileVisibility = DEFAULT_PROFILE_VISIBILITY,
+        profileVisibility = ProfileVisibility.PUBLIC,
     )
 
     private companion object {
-        const val DEFAULT_PROFILE_VISIBILITY = "PUBLIC"
         const val WITHDRAWAL_GRACE_PERIOD_DAYS = 30L
     }
 }

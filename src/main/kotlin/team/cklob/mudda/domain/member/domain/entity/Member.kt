@@ -10,6 +10,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import team.cklob.mudda.domain.member.domain.type.Gender
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
+import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.global.common.entity.BaseTimeEntity
 import java.time.LocalDateTime
 
@@ -47,8 +48,9 @@ class Member(
 	@Column(length = 100)
 	var bio: String? = null,
 
+	@Enumerated(EnumType.STRING)
 	@Column(name = "profile_visibility", nullable = false, length = 20)
-	var profileVisibility: String,
+	var profileVisibility: ProfileVisibility,
 
 	@Column(name = "withdrawn_at")
 	var withdrawnAt: LocalDateTime? = null,

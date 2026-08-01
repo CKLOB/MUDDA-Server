@@ -10,6 +10,7 @@ import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.domain.type.Gender
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
+import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.global.exception.BusinessException
 import team.cklob.mudda.global.exception.ErrorCode
 import java.util.Optional
@@ -21,7 +22,7 @@ class SignupAuthServiceTest {
     private val request = SignupAuthRequest(name = "name", nickname = "nickname", gender = Gender.MALE, birthYear = 2000)
 
     private fun incompleteMember(): Member =
-        Member(email = "user@example.com", oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = "PUBLIC", id = 1L)
+        Member(email = "user@example.com", oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-1", profileVisibility = ProfileVisibility.PUBLIC, id = 1L)
 
     @Test fun `completes signup for an incomplete member`() {
         val member = incompleteMember()
