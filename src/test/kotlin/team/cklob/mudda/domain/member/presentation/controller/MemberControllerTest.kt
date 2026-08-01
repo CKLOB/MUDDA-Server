@@ -102,6 +102,38 @@ class MemberControllerTest(@Autowired private val mockMvc: MockMvc, @Autowired p
 			.andExpect(jsonPath("$.data.bio").value("new bio"))
 	}
 
+	@Test fun `updateMe rejects a non-http(s) profileImageUrl before reaching the service`() {
+		val token = accessTokenFor(1L)
+
+		mockMvc.perform(
+			patch("/api/v1/members/me")
+				.header("Authorization", "Bearer $token")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"profileImageUrl":"javascript:alert(1)"}"""),
+		).andExpect(status().isBadRequest)
+	}
+
+	@Test fun `updateMe accepts an http(s) profileImageUrl and an empty string to clear it`() {
+		val token = accessTokenFor(1L)
+		every { updateMyMemberService.execute(1L, UpdateMyMemberRequest(profileImageUrl = "http://cdn.local/img.png")) } returns
+			myMemberResponse().copy(profileImageUrl = "http://cdn.local/img.png")
+		every { updateMyMemberService.execute(1L, UpdateMyMemberRequest(profileImageUrl = "")) } returns myMemberResponse().copy(profileImageUrl = null)
+
+		mockMvc.perform(
+			patch("/api/v1/members/me")
+				.header("Authorization", "Bearer $token")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"profileImageUrl":"http://cdn.local/img.png"}"""),
+		).andExpect(status().isOk)
+
+		mockMvc.perform(
+			patch("/api/v1/members/me")
+				.header("Authorization", "Bearer $token")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""{"profileImageUrl":""}"""),
+		).andExpect(status().isOk)
+	}
+
 	@Test fun `updateMe returns 409 when the nickname is already taken`() {
 		val token = accessTokenFor(1L)
 		every { updateMyMemberService.execute(1L, UpdateMyMemberRequest(nickname = "taken")) } throws BusinessException(ErrorCode.NICKNAME_ALREADY_EXISTS)

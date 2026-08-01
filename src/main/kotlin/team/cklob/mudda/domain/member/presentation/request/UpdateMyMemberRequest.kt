@@ -2,6 +2,7 @@ package team.cklob.mudda.domain.member.presentation.request
 
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import team.cklob.mudda.domain.member.domain.type.Gender
 import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
@@ -19,6 +20,9 @@ data class UpdateMyMemberRequest(
 	@field:Max(2100)
 	val birthYear: Int? = null,
 
+	// Blank is allowed through here so the service layer's empty-string-to-null clearing still works;
+	// only an actually non-blank, non-http(s) value (e.g. javascript:, data:, file:) is rejected.
+	@field:Pattern(regexp = "^\\s*$|^https?://\\S+$", message = "profileImageUrl must be blank or an http(s) URL")
 	@field:Size(max = 255)
 	val profileImageUrl: String? = null,
 
