@@ -44,6 +44,10 @@ Check the Compose file:
 docker compose config
 ```
 
+## Media Storage
+
+The bucket configured by `MEDIA_STORAGE_BUCKET` must be private. Allow browser `PUT` requests in its CORS policy and add an S3 Lifecycle rule that expires objects under `pending/` after one day. Completed media is moved to `media/` and served only through short-lived signed URLs.
+
 ## Gradle Files
 
 - `build.gradle.kts`: plugins and dependency setup
