@@ -50,3 +50,12 @@ oauth:
     team-id: ${OAUTH_APPLE_TEAM_ID:}
     key-id: ${OAUTH_APPLE_KEY_ID:}
     private-key: ${OAUTH_APPLE_PRIVATE_KEY:}
+
+media:
+  storage:
+    bucket: ${MEDIA_STORAGE_BUCKET:mudda-media}
+    upload-url-expiration: ${MEDIA_UPLOAD_URL_EXPIRATION:10m}
+    access-url-expiration: ${MEDIA_ACCESS_URL_EXPIRATION:5m}
+    max-image-size: ${MEDIA_MAX_IMAGE_SIZE:10485760}
+    max-voice-size: ${MEDIA_MAX_VOICE_SIZE:20971520}
+    max-video-size: ${MEDIA_MAX_VIDEO_SIZE:104857600}
