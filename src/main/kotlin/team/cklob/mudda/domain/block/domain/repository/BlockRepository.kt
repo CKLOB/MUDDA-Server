@@ -14,8 +14,4 @@ interface BlockRepository : JpaRepository<Block, Long> {
 		blockerId2: Long,
 		blockedId2: Long,
 	): Boolean
-
-	// All block rows where the given member is on either side, used to build a single member's full
-	// bidirectional block set in one query (e.g. filtering the friend list) instead of per-row lookups.
-	fun findByBlockerIdOrBlockedId(blockerId: Long, blockedId: Long): List<Block>
 }

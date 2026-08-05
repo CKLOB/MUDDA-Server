@@ -24,7 +24,7 @@ class SearchFriendService(
 		val trimmed = keyword.trim()
 		if (trimmed.isBlank()) throw BusinessException(ErrorCode.INVALID_SEARCH_KEYWORD)
 
-		val page = memberRepository.searchSelectableByNickname(memberId, trimmed, escapeLike(trimmed), pageable)
+		val page = memberRepository.searchSelectableByNickname(memberId, trimmed, pageable)
 		val candidateIds = page.content.mapNotNull { it.id }
 		val relationsByOtherId = if (candidateIds.isEmpty()) emptyMap() else groupRelationsByOtherId(memberId, friendRepository.findAllBetween(memberId, candidateIds))
 
@@ -55,8 +55,4 @@ class SearchFriendService(
 			FriendRequestStatus.REJECTED -> FriendStatus.NONE to null
 		}
 	}
-
-	// Escapes LIKE wildcards (%, _) and the escape character itself ('!') so a keyword containing them is
-	// matched literally instead of as a wildcard pattern. Paired with `ESCAPE '!'` in MemberRepository.
-	private fun escapeLike(raw: String): String = raw.replace("!", "!!").replace("%", "!%").replace("_", "!_")
 }
