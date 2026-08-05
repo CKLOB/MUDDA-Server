@@ -1,6 +1,7 @@
 package team.cklob.mudda.domain.media.infrastructure
 
 import org.springframework.boot.context.properties.ConfigurationProperties
+import team.cklob.mudda.domain.media.domain.type.MediaType
 import java.time.Duration
 
 @ConfigurationProperties("media.storage")
@@ -11,4 +12,20 @@ data class MediaStorageProperties(
 	val maxImageSize: Long = 10 * 1024 * 1024,
 	val maxVoiceSize: Long = 20 * 1024 * 1024,
 	val maxVideoSize: Long = 100 * 1024 * 1024,
-)
+) {
+	fun maxSizeFor(mediaType: MediaType) = when (mediaType) {
+		MediaType.IMAGE -> maxImageSize
+		MediaType.VIDEO -> maxVideoSize
+		MediaType.VOICE -> maxVoiceSize
+	}
+
+	fun allowedContentTypesFor(mediaType: MediaType) = ALLOWED_CONTENT_TYPES[mediaType].orEmpty()
+
+	companion object {
+		private val ALLOWED_CONTENT_TYPES = mapOf(
+			MediaType.IMAGE to setOf("image/jpeg", "image/png", "image/webp"),
+			MediaType.VIDEO to setOf("video/mp4", "video/quicktime"),
+			MediaType.VOICE to setOf("audio/mpeg", "audio/mp4", "audio/wav"),
+		)
+	}
+}

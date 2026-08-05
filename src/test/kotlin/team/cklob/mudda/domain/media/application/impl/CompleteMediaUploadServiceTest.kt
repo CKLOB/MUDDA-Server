@@ -34,7 +34,6 @@ class CompleteMediaUploadServiceTest {
 	@Test
 	fun `promotes and registers a valid pending upload`() {
 		val key = MediaUploadKey.create(7, MediaType.IMAGE)
-		every { mediaRepository.findByS3KeyAndUploaderId(key.permanentKey, 7) } returns null
 		every { mediaStorage.inspect(key.pendingKey) } returns StoredObject("image/jpeg", 1024)
 		every { memberRepository.findById(7) } returns Optional.of(member)
 		every { mediaRepository.insertUnattached(7, "IMAGE", key.permanentKey) } returns 1

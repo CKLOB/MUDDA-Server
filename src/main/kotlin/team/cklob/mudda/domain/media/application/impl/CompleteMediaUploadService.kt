@@ -2,11 +2,9 @@ package team.cklob.mudda.domain.media.application.impl
 
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import team.cklob.mudda.domain.media.application.MediaStorage
 import team.cklob.mudda.domain.media.application.MediaUploadKey
 import team.cklob.mudda.domain.media.domain.repository.MediaRepository
-import team.cklob.mudda.domain.media.domain.type.MediaType
 import team.cklob.mudda.domain.media.infrastructure.MediaStorageProperties
 import team.cklob.mudda.domain.media.presentation.request.CompleteMediaUploadRequest
 import team.cklob.mudda.domain.media.presentation.response.CompleteMediaUploadResponse
@@ -24,7 +22,6 @@ class CompleteMediaUploadService(
 ) {
 	private val logger = LoggerFactory.getLogger(javaClass)
 
-	@Transactional
 	fun execute(memberId: Long, request: CompleteMediaUploadRequest): CompleteMediaUploadResponse {
 		val key = MediaUploadKey.parse(request.uploadKey)
 			?.takeIf { it.memberId == memberId }
@@ -35,12 +32,8 @@ class CompleteMediaUploadService(
 		}
 
 		val storedObject = mediaStorage.inspect(key.pendingKey)
-		val maxSize = when (key.mediaType) {
-			MediaType.IMAGE -> properties.maxImageSize
-			MediaType.VIDEO -> properties.maxVideoSize
-			MediaType.VOICE -> properties.maxVoiceSize
-		}
-		if (storedObject.contentType?.lowercase() !in CreateMediaUploadUrlService.ALLOWED_CONTENT_TYPES[key.mediaType].orEmpty() ||
+		val maxSize = properties.maxSizeFor(key.mediaType)
+		if (storedObject.contentType?.lowercase() !in properties.allowedContentTypesFor(key.mediaType) ||
 			storedObject.contentLength <= 0 || storedObject.contentLength > maxSize
 		) {
 			throw BusinessException(ErrorCode.INVALID_MEDIA_UPLOAD)

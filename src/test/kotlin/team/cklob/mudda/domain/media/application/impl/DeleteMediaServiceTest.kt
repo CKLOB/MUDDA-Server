@@ -30,8 +30,8 @@ class DeleteMediaServiceTest {
 		service.execute(7, 1)
 
 		verify(ordering = io.mockk.Ordering.ORDERED) {
-			mediaStorage.delete("media/7/image/id")
 			mediaRepository.delete(media)
+			mediaStorage.delete("media/7/image/id")
 		}
 	}
 

@@ -1,5 +1,6 @@
 package team.cklob.mudda.domain.media.infrastructure
 
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest
@@ -23,6 +24,8 @@ class S3MediaStorage(
 	private val s3Presigner: S3Presigner,
 	private val properties: MediaStorageProperties,
 ) : MediaStorage {
+	private val logger = LoggerFactory.getLogger(javaClass)
+
 	override fun createUploadUrl(key: String, contentType: String, contentLength: Long): SignedUrl = storageCall {
 		val request = PutObjectRequest.builder()
 			.bucket(properties.bucket)
@@ -76,6 +79,7 @@ class S3MediaStorage(
 	} catch (exception: BusinessException) {
 		throw exception
 	} catch (exception: Exception) {
+		logger.error("Media storage request failed", exception)
 		throw BusinessException(ErrorCode.MEDIA_STORAGE_ERROR)
 	}
 }
