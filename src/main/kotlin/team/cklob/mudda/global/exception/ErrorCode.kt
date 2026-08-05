@@ -16,5 +16,9 @@ enum class ErrorCode(val status: HttpStatus, val code: String, val message: Stri
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "M001", "Nickname already exists."),
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "M002", "Member not found."),
     PROFILE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "M003", "You do not have access to this profile."),
+    MEDIA_NOT_FOUND(HttpStatus.NOT_FOUND, "D001", "Media not found."),
+    INVALID_MEDIA_UPLOAD(HttpStatus.BAD_REQUEST, "D002", "Invalid media upload."),
+    MEDIA_ALREADY_ATTACHED(HttpStatus.CONFLICT, "D003", "Attached media cannot be deleted."),
+    MEDIA_STORAGE_ERROR(HttpStatus.BAD_GATEWAY, "D004", "Media storage request failed."),
     CAPSULE_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "Time capsule not found."),
 }
