@@ -70,6 +70,20 @@ class CompleteMediaUploadServiceTest {
 	}
 
 	@Test
+	fun `returns a concurrently completed record when pending object is gone`() {
+		val key = MediaUploadKey.create(7, MediaType.VIDEO)
+		val media = Media(uploader = member, mediaType = MediaType.VIDEO, s3Key = key.permanentKey, id = 12)
+		every { mediaRepository.findByS3KeyAndUploaderId(key.permanentKey, 7) } returnsMany listOf(null, media)
+		every { mediaStorage.inspect(key.pendingKey) } throws BusinessException(ErrorCode.MEDIA_STORAGE_ERROR)
+		every { mediaStorage.createAccessUrl(key.permanentKey) } returns accessUrl
+
+		val response = service.execute(7, CompleteMediaUploadRequest(key.pendingKey))
+
+		assertEquals(12, response.mediaId)
+		assertEquals("https://access", response.accessUrl)
+	}
+
+	@Test
 	fun `does not promote when another request wins the registration race`() {
 		val key = MediaUploadKey.create(7, MediaType.IMAGE)
 		val media = Media(uploader = member, mediaType = MediaType.IMAGE, s3Key = key.permanentKey, id = 13)

@@ -31,7 +31,12 @@ class CompleteMediaUploadService(
 			return CompleteMediaUploadResponse.from(it, mediaStorage.createAccessUrl(it.s3Key))
 		}
 
-		val storedObject = mediaStorage.inspect(key.pendingKey)
+		val storedObject = try {
+			mediaStorage.inspect(key.pendingKey)
+		} catch (exception: BusinessException) {
+			val existing = mediaRepository.findByS3KeyAndUploaderId(key.permanentKey, memberId) ?: throw exception
+			return CompleteMediaUploadResponse.from(existing, mediaStorage.createAccessUrl(existing.s3Key))
+		}
 		val maxSize = properties.maxSizeFor(key.mediaType)
 		if (storedObject.contentType?.lowercase() !in properties.allowedContentTypesFor(key.mediaType) ||
 			storedObject.contentLength <= 0 || storedObject.contentLength > maxSize
