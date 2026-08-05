@@ -66,7 +66,13 @@ dependencies {
 
 kotlin {
 	compilerOptions {
-		freeCompilerArgs.addAll("-Xjsr305=strict")
+		// Without this, a Kotlin interface method with a body (e.g. MemberRepository's convenience
+		// overload of searchSelectableByNickname) compiles to a synthetic DefaultImpls dispatch instead of
+		// a real JVM `default` method. Spring Data's repository proxy only recognizes true JVM default
+		// methods via Method.isDefault() -- otherwise it treats the method as yet another abstract query
+		// method and tries (and fails) to derive a query from its name. This flag makes Kotlin emit real
+		// default methods so Spring Data dispatches to the actual Kotlin-written body instead.
+		freeCompilerArgs.addAll("-Xjsr305=strict", "-Xjvm-default=all")
 	}
 }
 

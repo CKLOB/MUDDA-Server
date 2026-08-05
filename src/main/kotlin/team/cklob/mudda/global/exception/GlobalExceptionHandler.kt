@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.http.MediaType
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
@@ -29,6 +30,11 @@ class GlobalExceptionHandler {
     // would otherwise fall through to the catch-all 500 handler below.
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
     fun handleTypeMismatch(e: MethodArgumentTypeMismatchException) = response(ErrorCode.INVALID_INPUT)
+
+    // A required @RequestParam that is missing (e.g. friend search's `keyword`, the request list's
+    // `type`) would otherwise fall through to the catch-all 500 handler below.
+    @ExceptionHandler(MissingServletRequestParameterException::class)
+    fun handleMissingParameter(e: MissingServletRequestParameterException) = response(ErrorCode.INVALID_INPUT)
 
     @ExceptionHandler(Exception::class)
     fun handleException(e: Exception): ResponseEntity<ApiResponse<Nothing>> {
