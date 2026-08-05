@@ -6,39 +6,26 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
-import org.springframework.transaction.annotation.Transactional
-import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.utility.DockerImageName
+import team.cklob.mudda.domain.block.domain.entity.Block
+import team.cklob.mudda.domain.block.domain.repository.BlockRepository
 import team.cklob.mudda.domain.friend.domain.entity.Friend
 import team.cklob.mudda.domain.friend.domain.type.FriendRequestStatus
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
 import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
-
-class PostgisContainer(imageName: DockerImageName) : PostgreSQLContainer<PostgisContainer>(imageName)
+import team.cklob.mudda.support.PostgresIntegrationTest
+import java.time.LocalDateTime
 
 // Exercises the real PostgreSQL/PostGIS schema produced by the actual Flyway migrations (including the
-// new V4 pending-pair unique index), which a MockK-based unit test cannot verify.
-@SpringBootTest(
-	properties = [
-		"spring.cloud.aws.region.static=ap-northeast-2",
-		"spring.cloud.aws.credentials.access-key=test",
-		"spring.cloud.aws.credentials.secret-key=test",
-		"jwt.secret=local-test-secret-must-be-at-least-32-bytes",
-	],
-)
-@Testcontainers
-@Transactional
-class FriendRepositoryIntegrationTest {
+// V4 pending-pair/rejected-reuse unique indexes and the accepted_at CHECK constraint), which a MockK-based
+// unit test cannot verify.
+class FriendRepositoryIntegrationTest : PostgresIntegrationTest() {
 	@Autowired private lateinit var friendRepository: FriendRepository
 	@Autowired private lateinit var memberRepository: MemberRepository
+	@Autowired private lateinit var blockRepository: BlockRepository
 	@Autowired private lateinit var entityManager: EntityManager
 
 	private fun member(tag: String) = memberRepository.saveAndFlush(
@@ -64,16 +51,37 @@ class FriendRepositoryIntegrationTest {
 		val a = member("a")
 		val b = member("b")
 		val c = member("c")
-		friendRepository.saveAndFlush(Friend(requester = a, receiver = b, status = FriendRequestStatus.ACCEPTED, acceptedAt = java.time.LocalDateTime.now()))
-		friendRepository.saveAndFlush(Friend(requester = c, receiver = a, status = FriendRequestStatus.ACCEPTED, acceptedAt = java.time.LocalDateTime.now()))
+		friendRepository.saveAndFlush(Friend(requester = a, receiver = b, status = FriendRequestStatus.ACCEPTED, acceptedAt = LocalDateTime.now()))
+		friendRepository.saveAndFlush(Friend(requester = c, receiver = a, status = FriendRequestStatus.ACCEPTED, acceptedAt = LocalDateTime.now()))
 		friendRepository.saveAndFlush(Friend(requester = a, receiver = member("d"), status = FriendRequestStatus.PENDING))
 		entityManager.flush()
 		entityManager.clear()
 
-		val page = friendRepository.findFriendships(a.id!!, FriendRequestStatus.ACCEPTED, PageRequest.of(0, 20))
+		val page = friendRepository.findFriendships(a.id!!, PageRequest.of(0, 20))
 
 		assertEquals(2, page.totalElements)
 		assertTrue(page.content.all { it.status == FriendRequestStatus.ACCEPTED })
+	}
+
+	@Test fun `findFriendships excludes a friend blocked in either direction`() {
+		val a = member("a")
+		val kept = member("kept")
+		val blockedByA = member("blocked-by-a")
+		val blockedA = member("blocked-a")
+		friendRepository.saveAndFlush(Friend(requester = a, receiver = kept, status = FriendRequestStatus.ACCEPTED, acceptedAt = LocalDateTime.now()))
+		friendRepository.saveAndFlush(Friend(requester = a, receiver = blockedByA, status = FriendRequestStatus.ACCEPTED, acceptedAt = LocalDateTime.now()))
+		friendRepository.saveAndFlush(Friend(requester = blockedA, receiver = a, status = FriendRequestStatus.ACCEPTED, acceptedAt = LocalDateTime.now()))
+		blockRepository.saveAndFlush(Block(blocker = a, blocked = blockedByA))
+		blockRepository.saveAndFlush(Block(blocker = blockedA, blocked = a))
+		entityManager.flush()
+		entityManager.clear()
+
+		val page = friendRepository.findFriendships(a.id!!, PageRequest.of(0, 20))
+
+		val counterpartIds = page.content.map { if (it.requester.id == a.id) it.receiver.id else it.requester.id }
+		assertEquals(listOf(kept.id), counterpartIds)
+		// The block filter runs in SQL, not as a post-fetch step, so totalElements reflects it too.
+		assertEquals(1L, page.totalElements)
 	}
 
 	@Test fun `same-direction duplicate PENDING request is rejected by the unique constraint`() {
@@ -96,15 +104,25 @@ class FriendRepositoryIntegrationTest {
 		}
 	}
 
-	companion object {
-		private val postgisImage = DockerImageName
-			.parse("postgis/postgis:16-3.5-alpine")
-			.asCompatibleSubstituteFor("postgres")
+	@Test fun `a rejected request can be sent again in the same direction`() {
+		val a = member("a")
+		val b = member("b")
+		friendRepository.saveAndFlush(Friend(requester = a, receiver = b, status = FriendRequestStatus.REJECTED))
 
-		@Container
-		@ServiceConnection
-		@JvmStatic
-		val postgres = PostgisContainer(postgisImage)
-			.withInitScript("db/init/001_enable_postgis.sql")
+		// Before V4's uq_friend_requester_receiver partial index (excluding REJECTED), this insert violated
+		// the unconditional unique constraint from V2 and made re-requesting permanently impossible.
+		val resent = friendRepository.saveAndFlush(Friend(requester = a, receiver = b, status = FriendRequestStatus.PENDING))
+
+		assertEquals(FriendRequestStatus.PENDING, resent.status)
+		assertEquals(2, friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(a.id!!, b.id!!, b.id!!, a.id!!).size)
+	}
+
+	@Test fun `an ACCEPTED row without accepted_at is rejected by ck_friend_accepted_at`() {
+		val a = member("a")
+		val b = member("b")
+
+		assertThrows(DataIntegrityViolationException::class.java) {
+			friendRepository.saveAndFlush(Friend(requester = a, receiver = b, status = FriendRequestStatus.ACCEPTED, acceptedAt = null))
+		}
 	}
 }

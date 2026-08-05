@@ -5,40 +5,23 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.data.domain.PageRequest
-import org.springframework.transaction.annotation.Transactional
-import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.utility.DockerImageName
 import team.cklob.mudda.domain.block.domain.entity.Block
 import team.cklob.mudda.domain.block.domain.repository.BlockRepository
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
 import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
-
-class PostgisContainer(imageName: DockerImageName) : PostgreSQLContainer<PostgisContainer>(imageName)
+import team.cklob.mudda.support.PostgresIntegrationTest
+import java.time.LocalDateTime
 
 // Exercises MemberRepository#searchSelectableByNickname against a real PostgreSQL instance -- the LIKE
 // ESCAPE clause, the CASE-based ranking, and the NOT EXISTS block-exclusion subquery are all things a
 // MockK-based unit test cannot verify actually compile to valid, correct SQL.
-@SpringBootTest(
-	properties = [
-		"spring.cloud.aws.region.static=ap-northeast-2",
-		"spring.cloud.aws.credentials.access-key=test",
-		"spring.cloud.aws.credentials.secret-key=test",
-		"jwt.secret=local-test-secret-must-be-at-least-32-bytes",
-	],
-)
-@Testcontainers
-@Transactional
-class MemberRepositorySearchIntegrationTest {
+class MemberRepositorySearchIntegrationTest : PostgresIntegrationTest() {
 	@Autowired private lateinit var memberRepository: MemberRepository
 	@Autowired private lateinit var blockRepository: BlockRepository
 
-	private fun member(tag: String, nickname: String? = "nick-$tag", withdrawnAt: java.time.LocalDateTime? = null) = memberRepository.saveAndFlush(
+	private fun member(tag: String, nickname: String? = "nick-$tag", withdrawnAt: LocalDateTime? = null) = memberRepository.saveAndFlush(
 		Member(
 			name = "name-$tag", nickname = nickname, email = "user-$tag@example.com",
 			oauthProvider = OAuthProvider.GOOGLE, providerId = "google-sub-$tag",
@@ -48,11 +31,11 @@ class MemberRepositorySearchIntegrationTest {
 
 	@Test fun `excludes the viewer, withdrawn members and members without a nickname`() {
 		val viewer = member("viewer", nickname = "search-target")
-		val withdrawn = member("withdrawn", nickname = "search-target-2", withdrawnAt = java.time.LocalDateTime.now())
+		val withdrawn = member("withdrawn", nickname = "search-target-2", withdrawnAt = LocalDateTime.now())
 		val incomplete = member("incomplete", nickname = null)
 		val target = member("target", nickname = "search-target-3")
 
-		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "search-target", "search-target", PageRequest.of(0, 20))
+		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "search-target", PageRequest.of(0, 20))
 
 		val ids = page.content.mapNotNull { it.id }
 		assertFalse(viewer.id in ids)
@@ -69,7 +52,7 @@ class MemberRepositorySearchIntegrationTest {
 		blockRepository.saveAndFlush(Block(blocker = viewer, blocked = blockedByViewer))
 		blockRepository.saveAndFlush(Block(blocker = blockedViewer, blocked = viewer))
 
-		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "block-search", "block-search", PageRequest.of(0, 20))
+		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "block-search", PageRequest.of(0, 20))
 
 		val ids = page.content.mapNotNull { it.id }
 		assertFalse(blockedByViewer.id in ids)
@@ -83,7 +66,7 @@ class MemberRepositorySearchIntegrationTest {
 		val prefix = member("prefix", nickname = "ranktest-suffix")
 		val exact = member("exact", nickname = "ranktest")
 
-		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "ranktest", "ranktest", PageRequest.of(0, 20))
+		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "ranktest", PageRequest.of(0, 20))
 
 		assertEquals(listOf(exact.id, prefix.id, containsOnly.id), page.content.mapNotNull { it.id })
 	}
@@ -93,7 +76,9 @@ class MemberRepositorySearchIntegrationTest {
 		val literalMatch = member("literal", nickname = "50%_off")
 		member("decoy", nickname = "50xyoff")
 
-		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "50%_off", "50!%!_off", PageRequest.of(0, 20))
+		// Calling the 3-arg overload here (rather than pre-computing the escaped keyword) exercises the
+		// real production call path, including MemberRepository's own escaping logic.
+		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "50%_off", PageRequest.of(0, 20))
 
 		assertEquals(listOf(literalMatch.id), page.content.mapNotNull { it.id })
 	}
@@ -102,21 +87,9 @@ class MemberRepositorySearchIntegrationTest {
 		val viewer = member("viewer5")
 		repeat(3) { member("page-$it", nickname = "page-target-$it") }
 
-		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "page-target", "page-target", PageRequest.of(0, 2))
+		val page = memberRepository.searchSelectableByNickname(viewer.id!!, "page-target", PageRequest.of(0, 2))
 
 		assertEquals(2, page.content.size)
 		assertEquals(3L, page.totalElements)
-	}
-
-	companion object {
-		private val postgisImage = DockerImageName
-			.parse("postgis/postgis:16-3.5-alpine")
-			.asCompatibleSubstituteFor("postgres")
-
-		@Container
-		@ServiceConnection
-		@JvmStatic
-		val postgres = PostgisContainer(postgisImage)
-			.withInitScript("db/init/001_enable_postgis.sql")
 	}
 }

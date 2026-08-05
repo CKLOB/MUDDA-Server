@@ -33,7 +33,7 @@ class SearchFriendServiceTest {
 
 	@Test fun `returns NONE when there is no relationship with a candidate`() {
 		val candidate = member(2L)
-		every { memberRepository.searchSelectableByNickname(1L, "nick", "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
+		every { memberRepository.searchSelectableByNickname(1L, "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
 		every { friendRepository.findAllBetween(1L, listOf(2L)) } returns emptyList()
 
 		val response = service.execute(1L, "nick", pageable)
@@ -45,7 +45,7 @@ class SearchFriendServiceTest {
 
 	@Test fun `marks a candidate the caller already sent a request to`() {
 		val candidate = member(2L)
-		every { memberRepository.searchSelectableByNickname(1L, "nick", "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
+		every { memberRepository.searchSelectableByNickname(1L, "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
 		every { friendRepository.findAllBetween(1L, listOf(2L)) } returns
 			listOf(Friend(requester = member(1L), receiver = candidate, status = FriendRequestStatus.PENDING, id = 10L))
 
@@ -58,7 +58,7 @@ class SearchFriendServiceTest {
 
 	@Test fun `marks a candidate who sent the caller a request`() {
 		val candidate = member(2L)
-		every { memberRepository.searchSelectableByNickname(1L, "nick", "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
+		every { memberRepository.searchSelectableByNickname(1L, "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
 		every { friendRepository.findAllBetween(1L, listOf(2L)) } returns
 			listOf(Friend(requester = candidate, receiver = member(1L), status = FriendRequestStatus.PENDING, id = 10L))
 
@@ -70,7 +70,7 @@ class SearchFriendServiceTest {
 
 	@Test fun `marks an already-accepted friend`() {
 		val candidate = member(2L)
-		every { memberRepository.searchSelectableByNickname(1L, "nick", "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
+		every { memberRepository.searchSelectableByNickname(1L, "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
 		every { friendRepository.findAllBetween(1L, listOf(2L)) } returns
 			listOf(Friend(requester = member(1L), receiver = candidate, status = FriendRequestStatus.ACCEPTED, id = 10L))
 
@@ -81,7 +81,7 @@ class SearchFriendServiceTest {
 
 	@Test fun `treats a rejected relationship as NONE`() {
 		val candidate = member(2L)
-		every { memberRepository.searchSelectableByNickname(1L, "nick", "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
+		every { memberRepository.searchSelectableByNickname(1L, "nick", pageable) } returns PageImpl(listOf(candidate), pageable, 1)
 		every { friendRepository.findAllBetween(1L, listOf(2L)) } returns
 			listOf(Friend(requester = member(1L), receiver = candidate, status = FriendRequestStatus.REJECTED, id = 10L))
 
@@ -96,23 +96,18 @@ class SearchFriendServiceTest {
 	}
 
 	@Test fun `trims the keyword before searching`() {
-		every { memberRepository.searchSelectableByNickname(1L, "nick", "nick", pageable) } returns PageImpl(emptyList(), pageable, 0)
+		every { memberRepository.searchSelectableByNickname(1L, "nick", pageable) } returns PageImpl(emptyList(), pageable, 0)
 
 		service.execute(1L, "  nick  ", pageable)
 
-		io.mockk.verify { memberRepository.searchSelectableByNickname(1L, "nick", "nick", pageable) }
-	}
-
-	@Test fun `escapes LIKE wildcard characters before searching`() {
-		every { memberRepository.searchSelectableByNickname(1L, "50%_off", "50!%!_off", pageable) } returns PageImpl(emptyList(), pageable, 0)
-
-		service.execute(1L, "50%_off", pageable)
-
-		io.mockk.verify { memberRepository.searchSelectableByNickname(1L, "50%_off", "50!%!_off", pageable) }
+		io.mockk.verify { memberRepository.searchSelectableByNickname(1L, "nick", pageable) }
+		// LIKE-wildcard escaping is no longer this service's concern -- it's encapsulated in
+		// MemberRepository#searchSelectableByNickname's 3-arg default method now, and verified for real
+		// against Postgres by MemberRepositorySearchIntegrationTest's "escapes LIKE wildcard characters".
 	}
 
 	@Test fun `paginates results and reports page metadata`() {
-		every { memberRepository.searchSelectableByNickname(1L, "nick", "nick", pageable) } returns PageImpl(emptyList(), pageable, 42)
+		every { memberRepository.searchSelectableByNickname(1L, "nick", pageable) } returns PageImpl(emptyList(), pageable, 42)
 
 		val response = service.execute(1L, "nick", pageable)
 

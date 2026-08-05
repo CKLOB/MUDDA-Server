@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import team.cklob.mudda.domain.block.domain.repository.BlockRepository
 import team.cklob.mudda.domain.friend.domain.entity.Friend
 import team.cklob.mudda.domain.friend.domain.repository.FriendRepository
 import team.cklob.mudda.domain.friend.domain.type.FriendRequestAction
@@ -22,7 +23,8 @@ import java.util.Optional
 
 class RespondFriendRequestServiceTest {
 	private val friendRepository = mockk<FriendRepository>()
-	private val service = RespondFriendRequestService(friendRepository)
+	private val blockRepository = mockk<BlockRepository>()
+	private val service = RespondFriendRequestService(friendRepository, blockRepository)
 
 	private fun member(id: Long) = Member(
 		name = "name-$id", nickname = "nickname-$id", email = "user$id@example.com",
@@ -32,9 +34,14 @@ class RespondFriendRequestServiceTest {
 	private fun pendingRequest(requesterId: Long = 1L, receiverId: Long = 2L) =
 		Friend(requester = member(requesterId), receiver = member(receiverId), status = FriendRequestStatus.PENDING, id = 10L)
 
+	private fun mockNoBlock(receiverId: Long = 2L, requesterId: Long = 1L) {
+		every { blockRepository.existsByBlockerIdAndBlockedIdOrBlockerIdAndBlockedId(receiverId, requesterId, requesterId, receiverId) } returns false
+	}
+
 	@Test fun `accepts a pending request addressed to the caller`() {
 		val friend = pendingRequest()
 		every { friendRepository.findById(10L) } returns Optional.of(friend)
+		mockNoBlock()
 
 		service.execute(2L, 10L, RespondFriendRequestRequest(FriendRequestAction.ACCEPT))
 
@@ -82,5 +89,24 @@ class RespondFriendRequestServiceTest {
 
 		val exception = assertThrows(BusinessException::class.java) { service.execute(2L, 10L, RespondFriendRequestRequest(FriendRequestAction.REJECT)) }
 		assertEquals(ErrorCode.FRIEND_REQUEST_ALREADY_PROCESSED, exception.errorCode)
+	}
+
+	@Test fun `rejects accepting when a block exists between the two members`() {
+		val friend = pendingRequest()
+		every { friendRepository.findById(10L) } returns Optional.of(friend)
+		every { blockRepository.existsByBlockerIdAndBlockedIdOrBlockerIdAndBlockedId(2L, 1L, 1L, 2L) } returns true
+
+		val exception = assertThrows(BusinessException::class.java) { service.execute(2L, 10L, RespondFriendRequestRequest(FriendRequestAction.ACCEPT)) }
+		assertEquals(ErrorCode.BLOCKED_MEMBER, exception.errorCode)
+		assertEquals(FriendRequestStatus.PENDING, friend.status)
+	}
+
+	@Test fun `does not check for a block when rejecting`() {
+		val friend = pendingRequest()
+		every { friendRepository.findById(10L) } returns Optional.of(friend)
+
+		service.execute(2L, 10L, RespondFriendRequestRequest(FriendRequestAction.REJECT))
+
+		io.mockk.verify(exactly = 0) { blockRepository.existsByBlockerIdAndBlockedIdOrBlockerIdAndBlockedId(any(), any(), any(), any()) }
 	}
 }

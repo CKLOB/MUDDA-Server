@@ -36,7 +36,8 @@ class SendFriendRequestServiceTest {
 	)
 
 	private fun mockNoBlock() {
-		every { blockRepository.existsByBlockerIdAndBlockedIdOrBlockerIdAndBlockedId(1L, 2L, 2L, 1L) } returns false
+		every { blockRepository.existsByBlockerIdAndBlockedId(1L, 2L) } returns false
+		every { blockRepository.existsByBlockerIdAndBlockedId(2L, 1L) } returns false
 	}
 
 	private fun mockNoExistingRelation() {
@@ -141,15 +142,29 @@ class SendFriendRequestServiceTest {
 		val response = service.execute(1L, SendFriendRequestRequest(receiverId = 2L))
 
 		assertEquals(11L, response.requestId)
+		// This only verifies the app-level check doesn't block a REJECTED relation; it can't prove the DB
+		// itself allows the insert (saveAndFlush is mocked). That's covered separately -- and for real -- by
+		// FriendRepositoryIntegrationTest's "a rejected request can be sent again in the same direction",
+		// which exercises the actual uq_friend_requester_receiver partial index from the V4 migration.
 	}
 
-	@Test fun `rejects when a block relationship exists`() {
+	@Test fun `rejects when the caller has blocked the target`() {
 		every { memberRepository.findById(1L) } returns Optional.of(member(1L))
 		every { memberRepository.findById(2L) } returns Optional.of(member(2L))
-		every { blockRepository.existsByBlockerIdAndBlockedIdOrBlockerIdAndBlockedId(1L, 2L, 2L, 1L) } returns true
+		every { blockRepository.existsByBlockerIdAndBlockedId(1L, 2L) } returns true
 
 		val exception = assertThrows(BusinessException::class.java) { service.execute(1L, SendFriendRequestRequest(receiverId = 2L)) }
 		assertEquals(ErrorCode.BLOCKED_MEMBER, exception.errorCode)
+	}
+
+	@Test fun `hides the block as member-not-found when the target has blocked the caller`() {
+		every { memberRepository.findById(1L) } returns Optional.of(member(1L))
+		every { memberRepository.findById(2L) } returns Optional.of(member(2L))
+		every { blockRepository.existsByBlockerIdAndBlockedId(1L, 2L) } returns false
+		every { blockRepository.existsByBlockerIdAndBlockedId(2L, 1L) } returns true
+
+		val exception = assertThrows(BusinessException::class.java) { service.execute(1L, SendFriendRequestRequest(receiverId = 2L)) }
+		assertEquals(ErrorCode.MEMBER_NOT_FOUND, exception.errorCode)
 	}
 
 	@Test fun `translates a concurrent reverse-direction insert race into a conflict`() {
