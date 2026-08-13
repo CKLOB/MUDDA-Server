@@ -1,6 +1,7 @@
 package team.cklob.mudda.domain.timecapsule.domain.entity
 
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
@@ -9,7 +10,6 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
-import jakarta.persistence.Lob
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.locationtech.jts.geom.Point
@@ -17,6 +17,7 @@ import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import team.cklob.mudda.global.common.entity.BaseTimeEntity
+import team.cklob.mudda.global.crypto.EncryptedStringConverter
 import java.time.LocalDateTime
 
 @Entity
@@ -29,7 +30,11 @@ class TimeCapsule(
 	@Column(nullable = false, length = 255)
 	val name: String,
 
-	@Lob
+	// Encrypted at rest -- the column only ever holds a ContentCipher envelope blob, never the body itself.
+	// No @Lob: on PostgreSQL that maps a String to a large object, so the column would hold an OID pointing
+	// into pg_largeobject rather than the value itself, and the referenced object is not removed when the
+	// row is deleted. `TEXT` is unbounded, so nothing is gained by the large-object indirection anyway.
+	@Convert(converter = EncryptedStringConverter::class)
 	@Column(columnDefinition = "TEXT")
 	val content: String? = null,
 
