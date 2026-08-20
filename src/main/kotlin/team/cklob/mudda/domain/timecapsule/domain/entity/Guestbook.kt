@@ -7,7 +7,6 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
-import jakarta.persistence.Lob
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import team.cklob.mudda.domain.member.domain.entity.Member
@@ -24,7 +23,8 @@ class Guestbook(
 	@JoinColumn(name = "member_id", nullable = false)
 	val member: Member,
 
-	@Lob
+	// No @Lob -- see the note on TimeCapsule.content: it would store a pg_largeobject OID here instead of
+	// the text, and orphan the object when the row is deleted.
 	@Column(nullable = false, columnDefinition = "TEXT")
 	val content: String,
 

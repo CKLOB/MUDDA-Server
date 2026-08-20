@@ -1,0 +1,118 @@
+package team.cklob.mudda.global.crypto
+
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import java.util.Base64
+import javax.crypto.AEADBadTagException
+
+class ContentCipherTest {
+    private val cipher = ContentCipher(CryptoProperties(key("mudda-test-master-key-32-bytes!!")))
+    private val otherCipher = ContentCipher(CryptoProperties(key("a-completely-different-32-byte!!")))
+
+    private fun key(raw: String) = Base64.getEncoder().encodeToString(raw.toByteArray())
+
+    // Splits a blob into its 5 parts so a test can corrupt exactly one of them.
+    private fun parts(blob: String) = blob.split(":").toMutableList()
+
+    private fun flipFirstByte(encoded: String): String {
+        val bytes = Base64.getDecoder().decode(encoded)
+        bytes[0] = (bytes[0].toInt() xor 0xFF).toByte()
+        return Base64.getEncoder().encodeToString(bytes)
+    }
+
+    @Test fun `round-trips a value through encrypt and decrypt`() {
+        val plaintext = "여기 묻어둔 이야기"
+
+        assertEquals(plaintext, cipher.decrypt(cipher.encrypt(plaintext)))
+    }
+
+    @Test fun `produces a different blob every time for the same plaintext`() {
+        val plaintext = "same input"
+
+        assertNotEquals(cipher.encrypt(plaintext), cipher.encrypt(plaintext))
+    }
+
+    @Test fun `never leaves the plaintext visible inside the blob`() {
+        val plaintext = "top-secret-marker"
+
+        val blob = cipher.encrypt(plaintext)
+
+        assertFalse(blob.contains(plaintext))
+    }
+
+    @Test fun `rejects a tampered ciphertext`() {
+        val parts = parts(cipher.encrypt("payload"))
+        parts[4] = flipFirstByte(parts[4])
+
+        assertThrows(AEADBadTagException::class.java) { cipher.decrypt(parts.joinToString(":")) }
+    }
+
+    @Test fun `rejects a tampered wrapped data key`() {
+        val parts = parts(cipher.encrypt("payload"))
+        parts[2] = flipFirstByte(parts[2])
+
+        assertThrows(AEADBadTagException::class.java) { cipher.decrypt(parts.joinToString(":")) }
+    }
+
+    @Test fun `rejects a tampered nonce`() {
+        val parts = parts(cipher.encrypt("payload"))
+        parts[3] = flipFirstByte(parts[3])
+
+        assertThrows(AEADBadTagException::class.java) { cipher.decrypt(parts.joinToString(":")) }
+    }
+
+    @Test fun `cannot decrypt a blob produced under a different master key`() {
+        val blob = cipher.encrypt("payload")
+
+        assertThrows(AEADBadTagException::class.java) { otherCipher.decrypt(blob) }
+    }
+
+    @Test fun `rejects an unknown format version`() {
+        val parts = parts(cipher.encrypt("payload"))
+        parts[0] = "v2"
+
+        assertThrows(IllegalArgumentException::class.java) { cipher.decrypt(parts.joinToString(":")) }
+    }
+
+    @Test fun `rejects a value that was never encrypted`() {
+        assertThrows(IllegalArgumentException::class.java) { cipher.decrypt("just plain text") }
+    }
+
+    @Test fun `round-trips an empty string`() {
+        assertEquals("", cipher.decrypt(cipher.encrypt("")))
+    }
+
+    // The NUL stays a \u0000 escape on purpose: a raw 0x00 byte in the source makes git classify the whole
+    // file as binary, which kills line diffs, blame and inline review comments on it.
+    @Test fun `round-trips multibyte text, emoji and control characters`() {
+        val plaintext = "한글 · 日本語 · emoji 🎁🔒 · \u0000 control"
+
+        assertEquals(plaintext, cipher.decrypt(cipher.encrypt(plaintext)))
+    }
+
+    @Test fun `round-trips a body larger than a megabyte`() {
+        val plaintext = "긴 편지 ".repeat(200_000)
+
+        assertEquals(plaintext, cipher.decrypt(cipher.encrypt(plaintext)))
+    }
+
+    @Test fun `rejects a master key that is not 32 bytes`() {
+        val exception = assertThrows(IllegalStateException::class.java) { CryptoProperties(key("too-short")) }
+
+        assertTrue(exception.message!!.contains("32 bytes"))
+    }
+
+    @Test fun `rejects a master key that is not valid Base64`() {
+        assertThrows(IllegalStateException::class.java) { CryptoProperties("!!!not base64!!!") }
+    }
+
+    @Test fun `does not expose the master key in toString`() {
+        val encoded = key("mudda-test-master-key-32-bytes!!")
+
+        assertFalse(CryptoProperties(encoded).toString().contains(encoded))
+    }
+}

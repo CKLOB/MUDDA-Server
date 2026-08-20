@@ -27,6 +27,7 @@ class PostgisContainer(imageName: DockerImageName) : PostgreSQLContainer<Postgis
 		"spring.cloud.aws.credentials.access-key=test",
 		"spring.cloud.aws.credentials.secret-key=test",
 		"jwt.secret=local-test-secret-must-be-at-least-32-bytes",
+		"mudda.crypto.master-key=bXVkZGEtdGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzISE=",
 	],
 )
 @Transactional
