@@ -69,3 +69,9 @@ media:
     max-image-size: ${MEDIA_MAX_IMAGE_SIZE:10485760}
     max-voice-size: ${MEDIA_MAX_VOICE_SIZE:20971520}
     max-video-size: ${MEDIA_MAX_VIDEO_SIZE:104857600}
+
+capsule:
+  open-radius-meter: ${CAPSULE_OPEN_RADIUS_METER:100}
+  max-active-per-member: ${CAPSULE_MAX_ACTIVE_PER_MEMBER:100}
+  max-expiration-years: ${CAPSULE_MAX_EXPIRATION_YEARS:10}
+  max-nearby-radius-meter: ${CAPSULE_MAX_NEARBY_RADIUS_METER:5000}

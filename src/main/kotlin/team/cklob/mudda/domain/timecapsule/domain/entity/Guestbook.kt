@@ -10,7 +10,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import team.cklob.mudda.domain.member.domain.entity.Member
-import team.cklob.mudda.global.common.entity.BaseCreatedAtEntity
+import team.cklob.mudda.global.common.entity.BaseTimeEntity
 
 @Entity
 @Table(name = "tbl_guestbook")
@@ -26,7 +26,7 @@ class Guestbook(
 	// No @Lob -- see the note on TimeCapsule.content: it would store a pg_largeobject OID here instead of
 	// the text, and orphan the object when the row is deleted.
 	@Column(nullable = false, columnDefinition = "TEXT")
-	val content: String,
+	var content: String,
 
 	@Column(name = "is_deleted", nullable = false)
 	var isDeleted: Boolean = false,
@@ -34,4 +34,4 @@ class Guestbook(
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	val id: Long? = null,
-) : BaseCreatedAtEntity()
+) : BaseTimeEntity()

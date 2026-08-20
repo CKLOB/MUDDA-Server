@@ -38,9 +38,6 @@ class TimeCapsule(
 	@Column(columnDefinition = "TEXT")
 	val content: String? = null,
 
-	@Column(name = "time_capsule_type", nullable = false, length = 20)
-	val timeCapsuleType: String,
-
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	val visibility: CapsuleVisibility,
@@ -67,14 +64,11 @@ class TimeCapsule(
 	@Column(name = "open_radius_meter", nullable = false)
 	val openRadiusMeter: Int,
 
-	@Column(name = "expires_at", nullable = false)
-	val expiresAt: LocalDateTime,
+	@Column(name = "open_at", nullable = false)
+	val openAt: LocalDateTime,
 
-	@Column(name = "is_anonymous", nullable = false)
-	val isAnonymous: Boolean,
-
-	@Column(name = "is_feed_public", nullable = false)
-	val isFeedPublic: Boolean,
+	@Column(name = "expires_at")
+	val expiredAt: LocalDateTime? = null,
 
 	@Column(name = "is_deleted", nullable = false)
 	var isDeleted: Boolean = false,

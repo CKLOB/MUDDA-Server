@@ -47,14 +47,12 @@ class EncryptedContentIntegrationTest : PostgresIntegrationTest() {
             member = member(tag),
             name = "capsule-$tag",
             content = content,
-            timeCapsuleType = "TEXT",
             visibility = CapsuleVisibility.PRIVATE,
             lockType = CapsuleLockType.NONE,
             location = point(),
             openRadiusMeter = 50,
-            expiresAt = LocalDateTime.now().plusYears(1),
-            isAnonymous = false,
-            isFeedPublic = false,
+            openAt = LocalDateTime.now(),
+            expiredAt = LocalDateTime.now().plusYears(1),
         ),
     )
 
