@@ -14,6 +14,16 @@ interface FriendRepository : JpaRepository<Friend, Long> {
 	fun findByRequesterIdAndReceiverId(requesterId: Long, receiverId: Long): Optional<Friend>
 	fun existsByRequesterIdAndReceiverId(requesterId: Long, receiverId: Long): Boolean
 
+	@Query(
+		"""
+		SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM Friend f
+		WHERE f.status = team.cklob.mudda.domain.friend.domain.type.FriendRequestStatus.ACCEPTED
+		  AND ((f.requester.id = :firstId AND f.receiver.id = :secondId)
+		    OR (f.requester.id = :secondId AND f.receiver.id = :firstId))
+		""",
+	)
+	fun existsAcceptedBetween(@Param("firstId") firstId: Long, @Param("secondId") secondId: Long): Boolean
+
 	// uq_friend_requester_receiver only blocks a duplicate row in the same direction, so a requester/receiver
 	// pair can still have two rows (e.g. both sides sent a request before either was accepted). Returning a
 	// List keeps that a normal case instead of an Optional throwing IncorrectResultSizeDataAccessException.

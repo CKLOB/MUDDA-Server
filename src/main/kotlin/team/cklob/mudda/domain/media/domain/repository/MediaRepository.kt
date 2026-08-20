@@ -10,6 +10,7 @@ import team.cklob.mudda.domain.media.domain.entity.Media
 interface MediaRepository : JpaRepository<Media, Long> {
 	fun findByS3KeyAndUploaderId(s3Key: String, uploaderId: Long): Media?
 	fun findByIdAndUploaderId(id: Long, uploaderId: Long): Media?
+	fun findAllByTimeCapsuleId(timeCapsuleId: Long): List<Media>
 
 	@Modifying
 	@Transactional
