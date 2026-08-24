@@ -26,11 +26,13 @@ class GetCapsuleListService(
 	@Transactional(readOnly = true)
 	fun execute(memberId: Long, pageNumber: Int, size: Int): CapsulePageResponse<CapsuleListItemResponse> {
 		val now = LocalDateTime.now()
-		// ponytail: in-memory access filtering keeps the authorization rule in one place; move it into a
-		// paged repository query when capsule volume makes this visible in query latency.
-		val visible = capsuleRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc()
-			.filter { it.expiredAt?.isAfter(now) != false && accessPolicy.canAccess(it, memberId) }
-			.map { it.toListItem(openRepository.existsByTimeCapsuleIdAndMemberId(requireNotNull(it.id), memberId)) }
+		// ponytail: filtering remains in memory, but authorization and open state are fetched in fixed-size
+		// batches. Move the whole predicate into a paged query when scanning all capsules becomes measurable.
+		val active = capsuleRepository.findAllByIsDeletedFalseOrderByCreatedAtDesc()
+			.filter { it.expiredAt?.isAfter(now) != false }
+		val accessible = accessPolicy.filterAccessible(active, memberId)
+		val openedIds = openedIds(openRepository, memberId, accessible)
+		val visible = accessible.map { it.toListItem(requireNotNull(it.id) in openedIds) }
 		val (items, current, total) = page(visible, pageNumber, size)
 		return CapsulePageResponse(items, current, size, total)
 	}
@@ -47,8 +49,9 @@ class GetMyCapsuleListService(
 		val values = capsuleRepository.findByMemberIdAndIsDeletedFalse(memberId)
 			.filter { it.expiredAt?.isAfter(now) != false }
 			.sortedByDescending { it.createdAt }
-			.map { it.toListItem(openRepository.existsByTimeCapsuleIdAndMemberId(requireNotNull(it.id), memberId), includeWriter = false) }
-		val (items, current, total) = page(values, pageNumber, size)
+		val openedIds = openedIds(openRepository, memberId, values)
+		val responses = values.map { it.toListItem(requireNotNull(it.id) in openedIds, includeWriter = false) }
+		val (items, current, total) = page(responses, pageNumber, size)
 		return CapsulePageResponse(items, current, size, total)
 	}
 }
@@ -61,8 +64,11 @@ class GetReceivedCapsuleListService(
 	@Transactional(readOnly = true)
 	fun execute(memberId: Long, pageNumber: Int, size: Int): CapsulePageResponse<CapsuleListItemResponse> {
 		val now = LocalDateTime.now()
-		val values = recipientRepository.findByMemberIdOrderByCreatedAtDesc(memberId)
-			.filter { it.timeCapsule.expiredAt?.isAfter(now) != false && !it.timeCapsule.isDeleted && accessPolicy.canAccess(it.timeCapsule, memberId) }
+		val recipients = recipientRepository.findByMemberIdOrderByCreatedAtDesc(memberId)
+			.filter { it.timeCapsule.expiredAt?.isAfter(now) != false && !it.timeCapsule.isDeleted }
+		val accessibleIds = accessPolicy.filterAccessible(recipients.map { it.timeCapsule }, memberId)
+			.mapTo(mutableSetOf()) { requireNotNull(it.id) }
+		val values = recipients.filter { requireNotNull(it.timeCapsule.id) in accessibleIds }
 			.map { it.timeCapsule.toListItem(it.hasOpened) }
 		val (items, current, total) = page(values, pageNumber, size)
 		return CapsulePageResponse(items, current, size, total)
@@ -81,21 +87,32 @@ class GetNearbyCapsuleService(
 		if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0 || radius <= 0 || radius > properties.maxNearbyRadiusMeter) {
 			throw BusinessException(ErrorCode.INVALID_INPUT)
 		}
-		val values = capsuleRepository.findNearby(latitude, longitude, radius).mapNotNull { projection ->
-			val capsule = capsuleRepository.findByIdAndIsDeletedFalse(projection.capsuleId).orElse(null) ?: return@mapNotNull null
-			if (!accessPolicy.canAccess(capsule, memberId)) return@mapNotNull null
+		val nearby = capsuleRepository.findNearby(latitude, longitude, radius)
+		val capsulesById = capsuleRepository.findAllByIdIn(nearby.map { it.capsuleId })
+			.associateBy { requireNotNull(it.id) }
+		val accessibleIds = accessPolicy.filterAccessible(capsulesById.values.toList(), memberId)
+			.mapTo(mutableSetOf()) { requireNotNull(it.id) }
+		val openedIds = accessibleIds.takeIf { it.isNotEmpty() }
+			?.let { openRepository.findOpenedCapsuleIds(memberId, it) }.orEmpty()
+		val values = nearby.mapNotNull { projection ->
+			val capsule = capsulesById[projection.capsuleId]
+				?.takeIf { requireNotNull(it.id) in accessibleIds } ?: return@mapNotNull null
 			NearbyCapsuleResponse(
 				capsuleId = requireNotNull(capsule.id), title = capsule.name,
 				latitude = capsule.location.y, longitude = capsule.location.x,
 				distance = projection.distance, requiredDistance = capsule.openRadiusMeter.toDouble(),
 				openAt = capsule.openAt, lockType = capsule.lockType,
-				isOpened = openRepository.existsByTimeCapsuleIdAndMemberId(requireNotNull(capsule.id), memberId),
+				isOpened = requireNotNull(capsule.id) in openedIds,
 			)
 		}
 		val (items, current, total) = page(values, pageNumber, size)
 		return CapsulePageResponse(items, current, size, total)
 	}
 }
+
+private fun openedIds(openRepository: CapsuleOpenRepository, memberId: Long, capsules: List<TimeCapsule>): Set<Long> =
+	capsules.map { requireNotNull(it.id) }.takeIf { it.isNotEmpty() }
+		?.let { openRepository.findOpenedCapsuleIds(memberId, it) }.orEmpty()
 
 @Service
 class GetCapsuleDetailService(

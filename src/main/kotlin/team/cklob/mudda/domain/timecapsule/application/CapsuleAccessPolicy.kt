@@ -28,6 +28,26 @@ class CapsuleAccessPolicy(
 		}
 	}
 
+	fun filterAccessible(capsules: List<TimeCapsule>, memberId: Long): List<TimeCapsule> {
+		if (capsules.isEmpty()) return emptyList()
+		val capsuleIds = capsules.map { requireNotNull(it.id) }
+		val writerIds = capsules.map { requireNotNull(it.member.id) }.filter { it != memberId }.toSet()
+		val blockedWriterIds = writerIds.takeIf { it.isNotEmpty() }
+			?.let { blockRepository.findBlockedMemberIds(memberId, it) }.orEmpty()
+		val friendWriterIds = writerIds.takeIf { it.isNotEmpty() }
+			?.let { friendRepository.findAcceptedCounterpartIds(memberId, it) }.orEmpty()
+		val receivedCapsuleIds = recipientRepository.findReceivedCapsuleIds(memberId, capsuleIds)
+
+		return capsules.filter { capsule ->
+			val capsuleId = requireNotNull(capsule.id)
+			val writerId = requireNotNull(capsule.member.id)
+			writerId == memberId || writerId !in blockedWriterIds && (
+				capsuleId in receivedCapsuleIds || capsule.visibility == CapsuleVisibility.PUBLIC ||
+					capsule.visibility == CapsuleVisibility.FRIEND && writerId in friendWriterIds
+			)
+		}
+	}
+
 	fun requireAccessible(capsule: TimeCapsule, memberId: Long, now: LocalDateTime = LocalDateTime.now()) {
 		if (capsule.isDeleted) throw CapsuleException(ErrorCode.CAPSULE_NOT_FOUND)
 		if (capsule.expiredAt?.let { !it.isAfter(now) } == true) throw CapsuleException(ErrorCode.CAPSULE_EXPIRED)

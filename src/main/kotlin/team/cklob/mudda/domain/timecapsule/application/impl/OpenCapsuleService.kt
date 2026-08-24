@@ -36,7 +36,9 @@ class OpenCapsuleService(
 ) {
 	@Transactional
 	fun execute(memberId: Long, capsuleId: Long, request: OpenCapsuleRequest): OpenCapsuleResponse {
-		val capsule = capsuleRepository.findByIdAndIsDeletedFalse(capsuleId).orElseThrow { CapsuleException() }
+		// ponytail: a capsule-row lock is intentionally coarse; split locking per member only if concurrent
+		// first-open throughput for the same capsule becomes measurable.
+		val capsule = capsuleRepository.findByIdAndIsDeletedFalseForUpdate(capsuleId).orElseThrow { CapsuleException() }
 		val now = LocalDateTime.now()
 		accessPolicy.requireAccessible(capsule, memberId, now)
 		if (capsule.openAt.isAfter(now)) throw CapsuleException(ErrorCode.CAPSULE_NOT_OPEN_YET)

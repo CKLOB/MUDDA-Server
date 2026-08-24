@@ -1,16 +1,28 @@
 package team.cklob.mudda.domain.timecapsule.domain.repository
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.EntityGraph
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import java.time.LocalDateTime
 import java.util.Optional
+import jakarta.persistence.LockModeType
 
 interface TimeCapsuleRepository : JpaRepository<TimeCapsule, Long> {
+	@EntityGraph(attributePaths = ["member"])
 	fun findByMemberIdAndIsDeletedFalse(memberId: Long): List<TimeCapsule>
+	@EntityGraph(attributePaths = ["member"])
 	fun findAllByIsDeletedFalseOrderByCreatedAtDesc(): List<TimeCapsule>
 	fun findByIdAndIsDeletedFalse(id: Long): Optional<TimeCapsule>
+
+	@EntityGraph(attributePaths = ["member"])
+	fun findAllByIdIn(ids: Collection<Long>): List<TimeCapsule>
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT c FROM TimeCapsule c JOIN FETCH c.member WHERE c.id = :id AND c.isDeleted = false")
+	fun findByIdAndIsDeletedFalseForUpdate(@Param("id") id: Long): Optional<TimeCapsule>
 
 	@Query("SELECT COUNT(c) FROM TimeCapsule c WHERE c.member.id = :memberId AND c.isDeleted = false AND (c.expiredAt IS NULL OR c.expiredAt > :now)")
 	fun countActiveByMemberId(@Param("memberId") memberId: Long, @Param("now") now: LocalDateTime): Long

@@ -58,7 +58,7 @@ class OpenCapsuleServiceTest {
 	fun `reopen still verifies location but does not verify password again`() {
 		val openedAt = LocalDateTime.now().minusHours(1)
 		val opened = CapsuleOpen(capsule, member, openedAt, id = 1)
-		every { capsuleRepository.findByIdAndIsDeletedFalse(1) } returns Optional.of(capsule)
+		every { capsuleRepository.findByIdAndIsDeletedFalseForUpdate(1) } returns Optional.of(capsule)
 		every { accessPolicy.requireAccessible(capsule, 7, any()) } returns Unit
 		every { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) } returns true
 		every { openRepository.findByTimeCapsuleIdAndMemberId(1, 7) } returns Optional.of(opened)
@@ -74,7 +74,7 @@ class OpenCapsuleServiceTest {
 
 	@Test
 	fun `rejects reopen outside the capsule radius`() {
-		every { capsuleRepository.findByIdAndIsDeletedFalse(1) } returns Optional.of(capsule)
+		every { capsuleRepository.findByIdAndIsDeletedFalseForUpdate(1) } returns Optional.of(capsule)
 		every { accessPolicy.requireAccessible(capsule, 7, any()) } returns Unit
 		every { capsuleRepository.isWithinOpeningRadius(1, 0.0, 0.0) } returns false
 

@@ -61,10 +61,14 @@ class GetGuestbookListService(
 
 @Service
 class UpdateGuestbookService(
+	private val capsuleRepository: TimeCapsuleRepository,
 	private val guestbookRepository: GuestbookRepository,
+	private val accessPolicy: CapsuleAccessPolicy,
 ) {
 	@Transactional
 	fun execute(memberId: Long, capsuleId: Long, guestbookId: Long, request: UpdateGuestbookRequest): UpdateGuestbookResponse {
+		val capsule = capsuleRepository.findByIdAndIsDeletedFalse(capsuleId).orElseThrow { CapsuleException() }
+		accessPolicy.requireAccessible(capsule, memberId)
 		val guestbook = guestbookRepository.findByIdAndTimeCapsuleIdAndIsDeletedFalse(guestbookId, capsuleId)
 			?: throw CapsuleException(ErrorCode.GUESTBOOK_NOT_FOUND)
 		if (guestbook.member.id != memberId) throw CapsuleException(ErrorCode.GUESTBOOK_ACCESS_DENIED)
@@ -76,10 +80,14 @@ class UpdateGuestbookService(
 
 @Service
 class DeleteGuestbookService(
+	private val capsuleRepository: TimeCapsuleRepository,
 	private val guestbookRepository: GuestbookRepository,
+	private val accessPolicy: CapsuleAccessPolicy,
 ) {
 	@Transactional
 	fun execute(memberId: Long, capsuleId: Long, guestbookId: Long) {
+		val capsule = capsuleRepository.findByIdAndIsDeletedFalse(capsuleId).orElseThrow { CapsuleException() }
+		accessPolicy.requireAccessible(capsule, memberId)
 		val guestbook = guestbookRepository.findByIdAndTimeCapsuleIdAndIsDeletedFalse(guestbookId, capsuleId)
 			?: throw CapsuleException(ErrorCode.GUESTBOOK_NOT_FOUND)
 		if (guestbook.member.id != memberId) throw CapsuleException(ErrorCode.GUESTBOOK_ACCESS_DENIED)
