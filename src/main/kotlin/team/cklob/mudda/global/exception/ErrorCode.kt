@@ -41,4 +41,5 @@ enum class ErrorCode(val status: HttpStatus, val code: String, val message: Stri
     FRIEND_NOT_FOUND(HttpStatus.NOT_FOUND, "F008", "Friend relationship not found."),
     BLOCKED_MEMBER(HttpStatus.FORBIDDEN, "F009", "This action is not allowed due to a block relationship."),
     INVALID_SEARCH_KEYWORD(HttpStatus.BAD_REQUEST, "F010", "Search keyword must not be blank."),
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "Notification not found."),
 }
