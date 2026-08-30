@@ -23,22 +23,15 @@ class OpenApiDocumentTest(
 		return objectMapper.readTree(body)
 	}
 
-	// SecurityConfigTest declares a @RestController fixture that component scanning pulls into this
-	// context, so it appears in the generated document during tests but never in production. It is not
-	// part of the API under test.
-	private fun JsonNode.productionOperations(): List<Pair<String, JsonNode>> =
+	// Test-only controllers are kept out of the document by @Hidden at their declaration, so everything
+	// reaching this point is a real endpoint.
+	private fun JsonNode.operations(): List<Pair<String, JsonNode>> =
 		path("paths").fields().asSequence().flatMap { (path, methods) ->
 			methods.fields().asSequence().map { (method, operation) -> "$method $path" to operation }
-		}.filterNot { (_, operation) ->
-			operation.path("tags").any { it.asText() in TEST_ONLY_TAGS }
 		}.toList()
 
-	private companion object {
-		val TEST_ONLY_TAGS = setOf("security-test-controller")
-	}
-
 	@Test fun `every endpoint is documented with a summary`() {
-		val undocumented = document().productionOperations()
+		val undocumented = document().operations()
 			.filter { (_, operation) -> operation.path("summary").asText("").isBlank() }
 			.map { (endpoint, _) -> endpoint }
 
@@ -46,7 +39,7 @@ class OpenApiDocumentTest(
 	}
 
 	@Test fun `every endpoint is grouped under a tag`() {
-		val untagged = document().productionOperations()
+		val untagged = document().operations()
 			.filterNot { (_, operation) -> operation.path("tags").elements().hasNext() }
 			.map { (endpoint, _) -> endpoint }
 
@@ -54,7 +47,7 @@ class OpenApiDocumentTest(
 	}
 
 	@Test fun `all nine domains are present as tags`() {
-		val tags = document().productionOperations()
+		val tags = document().operations()
 			.flatMap { (_, operation) -> operation.path("tags").map { it.asText() } }
 			.toSet()
 
@@ -65,7 +58,7 @@ class OpenApiDocumentTest(
 	}
 
 	@Test fun `every documented endpoint carries a description as well as a summary`() {
-		val missing = document().productionOperations()
+		val missing = document().operations()
 			.filter { (_, operation) -> operation.path("description").asText("").isBlank() }
 			.map { (endpoint, _) -> endpoint }
 

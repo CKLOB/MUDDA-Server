@@ -1,5 +1,6 @@
 package team.cklob.mudda.global.config
 
+import io.swagger.v3.oas.annotations.Hidden
 import io.mockk.every
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
@@ -32,6 +33,10 @@ class SecurityConfigTest(@Autowired private val mockMvc: MockMvc, @Autowired pri
     }
 }
 
+// @Hidden keeps this fixture out of the generated OpenAPI document. Component scanning pulls it into
+// any full @SpringBootTest context, where it would otherwise show up as a real endpoint alongside the
+// actual API (see OpenApiDocumentTest).
+@Hidden
 @RestController
 class SecurityTestController {
     @GetMapping("/api/v1/maps/ping") fun public() = "ok"
