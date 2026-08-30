@@ -47,4 +47,6 @@ enum class ErrorCode(val status: HttpStatus, val code: String, val message: Stri
     CANNOT_REPORT_SELF(HttpStatus.BAD_REQUEST, "R001", "Cannot report yourself."),
     ALREADY_REPORTED(HttpStatus.CONFLICT, "R002", "You have already reported this target."),
     REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "R003", "Report target not found."),
+    INVALID_CAPSULE_ENCRYPTION(HttpStatus.BAD_REQUEST, "T012", "The capsule encryption payload is invalid."),
+    SERVER_HOLDS_KEY_QUORUM(HttpStatus.BAD_REQUEST, "T013", "The server was given enough key shares to reconstruct the content key."),
 }

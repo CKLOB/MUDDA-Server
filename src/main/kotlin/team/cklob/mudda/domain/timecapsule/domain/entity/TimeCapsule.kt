@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.locationtech.jts.geom.Point
 import team.cklob.mudda.domain.member.domain.entity.Member
+import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEncryptionMode
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import team.cklob.mudda.global.common.entity.BaseTimeEntity
@@ -30,13 +31,26 @@ class TimeCapsule(
 	@Column(nullable = false, length = 255)
 	val name: String,
 
-	// Encrypted at rest -- the column only ever holds a ContentCipher envelope blob, never the body itself.
+	// Never holds the body in plaintext. For SERVER_ENVELOPE capsules it is a ContentCipher envelope the
+	// server can open; for CLIENT_E2E capsules it is a blob the client encrypted under a key the server
+	// never received, and the converter simply adds a second at-rest layer over ciphertext.
+	//
 	// No @Lob: on PostgreSQL that maps a String to a large object, so the column would hold an OID pointing
 	// into pg_largeobject rather than the value itself, and the referenced object is not removed when the
 	// row is deleted. `TEXT` is unbounded, so nothing is gained by the large-object indirection anyway.
 	@Convert(converter = EncryptedStringConverter::class)
 	@Column(columnDefinition = "TEXT")
 	val content: String? = null,
+
+	// Which side holds the key. Read the mode rather than inferring it from lockType: the open path must
+	// never hand back a body for a capsule the server is not supposed to be able to read.
+	@Enumerated(EnumType.STRING)
+	@Column(name = "encryption_mode", nullable = false, length = 20)
+	val encryptionMode: CapsuleEncryptionMode = CapsuleEncryptionMode.SERVER_ENVELOPE,
+
+	// Number of shares needed to rebuild the content key. Null for SERVER_ENVELOPE capsules.
+	@Column(name = "key_threshold")
+	val keyThreshold: Int? = null,
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
