@@ -1,5 +1,7 @@
 package team.cklob.mudda.domain.block.domain.repository
 
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -8,6 +10,14 @@ import team.cklob.mudda.domain.block.domain.entity.Block
 interface BlockRepository : JpaRepository<Block, Long> {
 	fun existsByBlockerIdAndBlockedId(blockerId: Long, blockedId: Long): Boolean
 	fun findByBlockerId(blockerId: Long): List<Block>
+	fun findByBlockerIdAndBlockedId(blockerId: Long, blockedId: Long): java.util.Optional<Block>
+
+	// JOIN FETCH so rendering each row's nickname and profile image doesn't trigger an N+1 lazy load.
+	@Query(
+		value = "SELECT b FROM Block b JOIN FETCH b.blocked WHERE b.blocker.id = :blockerId ORDER BY b.createdAt DESC, b.id DESC",
+		countQuery = "SELECT COUNT(b) FROM Block b WHERE b.blocker.id = :blockerId",
+	)
+	fun findByBlockerIdOrderByCreatedAtDesc(@Param("blockerId") blockerId: Long, pageable: Pageable): Page<Block>
 
 	// Bidirectional existence check: true if either member has blocked the other.
 	fun existsByBlockerIdAndBlockedIdOrBlockerIdAndBlockedId(

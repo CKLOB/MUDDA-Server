@@ -42,4 +42,9 @@ enum class ErrorCode(val status: HttpStatus, val code: String, val message: Stri
     BLOCKED_MEMBER(HttpStatus.FORBIDDEN, "F009", "This action is not allowed due to a block relationship."),
     INVALID_SEARCH_KEYWORD(HttpStatus.BAD_REQUEST, "F010", "Search keyword must not be blank."),
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "Notification not found."),
+    CANNOT_BLOCK_SELF(HttpStatus.BAD_REQUEST, "B001", "Cannot block yourself."),
+    BLOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "B002", "Block not found."),
+    CANNOT_REPORT_SELF(HttpStatus.BAD_REQUEST, "R001", "Cannot report yourself."),
+    ALREADY_REPORTED(HttpStatus.CONFLICT, "R002", "You have already reported this target."),
+    REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "R003", "Report target not found."),
 }
