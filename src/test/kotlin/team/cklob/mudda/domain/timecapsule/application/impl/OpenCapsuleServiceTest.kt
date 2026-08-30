@@ -14,6 +14,10 @@ import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
 import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
+import team.cklob.mudda.domain.feed.infrastructure.FeedBroadcaster
+import team.cklob.mudda.domain.notification.application.impl.NotificationPublisher
+import team.cklob.mudda.domain.notification.domain.type.NotificationTargetType
+import team.cklob.mudda.domain.notification.domain.type.NotificationType
 import team.cklob.mudda.domain.timecapsule.application.CapsuleAccessPolicy
 import team.cklob.mudda.domain.timecapsule.domain.entity.CapsuleOpen
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
@@ -38,9 +42,12 @@ class OpenCapsuleServiceTest {
 	private val mediaStorage = mockk<MediaStorage>()
 	private val passwordEncoder = mockk<PasswordEncoder>()
 	private val accessPolicy = mockk<CapsuleAccessPolicy>()
+	private val notificationPublisher = mockk<NotificationPublisher>(relaxed = true)
+	private val feedBroadcaster = mockk<FeedBroadcaster>(relaxed = true)
 	private val service = OpenCapsuleService(
 		capsuleRepository, openRepository, recipientRepository, memberRepository,
 		mediaRepository, mediaStorage, passwordEncoder, accessPolicy,
+		notificationPublisher, feedBroadcaster,
 	)
 
 	private val member = Member(
@@ -82,5 +89,61 @@ class OpenCapsuleServiceTest {
 
 		assertEquals(ErrorCode.CAPSULE_OUT_OF_RANGE, exception.errorCode)
 		verify(exactly = 0) { openRepository.findByTimeCapsuleIdAndMemberId(any(), any()) }
+	}
+
+	// -------- notification / feed side effects --------
+
+	@Test fun `reopening does not notify the owner or repost to the feed again`() {
+		val opened = CapsuleOpen(capsule, member, LocalDateTime.now().minusHours(1), id = 1)
+		every { capsuleRepository.findByIdAndIsDeletedFalseForUpdate(1) } returns Optional.of(capsule)
+		every { accessPolicy.requireAccessible(capsule, 7, any()) } returns Unit
+		every { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) } returns true
+		every { openRepository.findByTimeCapsuleIdAndMemberId(1, 7) } returns Optional.of(opened)
+		every { mediaRepository.findAllByTimeCapsuleId(1) } returns emptyList()
+
+		service.execute(7, 1, OpenCapsuleRequest(37.5, 127.0))
+
+		verify(exactly = 0) { notificationPublisher.publish(any(), any(), any(), any(), any(), any()) }
+		verify(exactly = 0) { feedBroadcaster.broadcast(any()) }
+	}
+
+	@Test fun `a first open notifies the owner and does not post a private capsule to the feed`() {
+		val opener = Member(
+			name = "other", nickname = "other", email = "b@example.com", oauthProvider = OAuthProvider.GOOGLE,
+			providerId = "provider-2", profileVisibility = ProfileVisibility.PUBLIC, id = 8,
+		)
+		every { capsuleRepository.findByIdAndIsDeletedFalseForUpdate(1) } returns Optional.of(capsule)
+		every { accessPolicy.requireAccessible(capsule, 8, any()) } returns Unit
+		every { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) } returns true
+		every { openRepository.findByTimeCapsuleIdAndMemberId(1, 8) } returns Optional.empty()
+		every { passwordEncoder.matches("pw", "hash") } returns true
+		every { memberRepository.findById(8) } returns Optional.of(opener)
+		every { openRepository.save(any()) } answers { CapsuleOpen(capsule, opener, LocalDateTime.now(), id = 2) }
+		every { recipientRepository.findByTimeCapsuleIdAndMemberId(1, 8) } returns Optional.empty()
+		every { mediaRepository.findAllByTimeCapsuleId(1) } returns emptyList()
+
+		service.execute(8, 1, OpenCapsuleRequest(37.5, 127.0, password = "pw"))
+
+		verify(exactly = 1) {
+			notificationPublisher.publish(member, NotificationType.CAPSULE_OPENED, any(), any(), 1L, NotificationTargetType.CAPSULE)
+		}
+		// The capsule under test is PRIVATE: opening it is not public information.
+		verify(exactly = 0) { feedBroadcaster.broadcast(any()) }
+	}
+
+	@Test fun `opening your own capsule notifies nobody`() {
+		every { capsuleRepository.findByIdAndIsDeletedFalseForUpdate(1) } returns Optional.of(capsule)
+		every { accessPolicy.requireAccessible(capsule, 7, any()) } returns Unit
+		every { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) } returns true
+		every { openRepository.findByTimeCapsuleIdAndMemberId(1, 7) } returns Optional.empty()
+		every { passwordEncoder.matches("pw", "hash") } returns true
+		every { memberRepository.findById(7) } returns Optional.of(member)
+		every { openRepository.save(any()) } answers { CapsuleOpen(capsule, member, LocalDateTime.now(), id = 3) }
+		every { recipientRepository.findByTimeCapsuleIdAndMemberId(1, 7) } returns Optional.empty()
+		every { mediaRepository.findAllByTimeCapsuleId(1) } returns emptyList()
+
+		service.execute(7, 1, OpenCapsuleRequest(37.5, 127.0, password = "pw"))
+
+		verify(exactly = 0) { notificationPublisher.publish(any(), any(), any(), any(), any(), any()) }
 	}
 }

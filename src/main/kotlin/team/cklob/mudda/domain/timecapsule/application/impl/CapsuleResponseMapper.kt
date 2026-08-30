@@ -63,3 +63,8 @@ internal fun <T> page(items: List<T>, page: Int, size: Int): Triple<List<T>, Int
 	val to = (from + size).coerceAtMost(items.size)
 	return Triple(items.subList(from, to), page, items.size.toLong())
 }
+
+// A capsule name is accepted up to 255 characters. Dropped verbatim into a notification sentence that is
+// then truncated to the column width, the trailing "...을(를) 남겼어요" would be cut off and the message
+// would read as though it stops mid-word. Shortening the name instead keeps the sentence intact.
+internal fun String.shortenForNotification() = if (length <= 40) this else take(39) + "…"

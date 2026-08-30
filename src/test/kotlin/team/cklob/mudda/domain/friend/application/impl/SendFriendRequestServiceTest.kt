@@ -15,6 +15,9 @@ import team.cklob.mudda.domain.friend.domain.type.FriendRequestStatus
 import team.cklob.mudda.domain.friend.presentation.request.SendFriendRequestRequest
 import team.cklob.mudda.domain.member.domain.entity.Member
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
+import team.cklob.mudda.domain.notification.application.impl.NotificationPublisher
+import team.cklob.mudda.domain.notification.domain.type.NotificationTargetType
+import team.cklob.mudda.domain.notification.domain.type.NotificationType
 import team.cklob.mudda.domain.member.domain.type.OAuthProvider
 import team.cklob.mudda.domain.member.domain.type.ProfileVisibility
 import team.cklob.mudda.global.exception.AuthException
@@ -27,7 +30,8 @@ class SendFriendRequestServiceTest {
 	private val friendRepository = mockk<FriendRepository>()
 	private val memberRepository = mockk<MemberRepository>()
 	private val blockRepository = mockk<BlockRepository>()
-	private val service = SendFriendRequestService(friendRepository, memberRepository, blockRepository)
+	private val notificationPublisher = mockk<NotificationPublisher>(relaxed = true)
+	private val service = SendFriendRequestService(friendRepository, memberRepository, blockRepository, notificationPublisher)
 
 	private fun member(id: Long, withdrawnAt: LocalDateTime? = null, nickname: String? = "nickname-$id") = Member(
 		name = "name-$id", nickname = nickname, email = "user$id@example.com",
@@ -192,5 +196,39 @@ class SendFriendRequestServiceTest {
 		service.execute(1L, SendFriendRequestRequest(receiverId = 2L))
 
 		verify(exactly = 1) { friendRepository.saveAndFlush(any()) }
+	}
+
+	@Test fun `a created request notifies the receiver and points at the request itself`() {
+		val requester = member(1L)
+		val receiver = member(2L)
+		every { memberRepository.findById(1L) } returns Optional.of(requester)
+		every { memberRepository.findById(2L) } returns Optional.of(receiver)
+		mockNoBlock()
+		mockNoExistingRelation()
+		every { friendRepository.saveAndFlush(any()) } answers {
+			Friend(requester = requester, receiver = receiver, status = FriendRequestStatus.PENDING, id = 10L)
+		}
+
+		service.execute(1L, SendFriendRequestRequest(receiverId = 2L))
+
+		verify(exactly = 1) {
+			notificationPublisher.publish(
+				receiver, NotificationType.FRIEND_REQUESTED, any(), any(), 10L, NotificationTargetType.FRIEND_REQUEST,
+			)
+		}
+	}
+
+	@Test fun `a rejected request notifies nobody`() {
+		val requester = member(1L)
+		val receiver = member(2L)
+		every { memberRepository.findById(1L) } returns Optional.of(requester)
+		every { memberRepository.findById(2L) } returns Optional.of(receiver)
+		mockNoBlock()
+		every { friendRepository.findByRequesterIdAndReceiverIdOrRequesterIdAndReceiverId(1L, 2L, 2L, 1L) } returns
+			listOf(Friend(requester = requester, receiver = receiver, status = FriendRequestStatus.ACCEPTED, id = 10L))
+
+		assertThrows(BusinessException::class.java) { service.execute(1L, SendFriendRequestRequest(receiverId = 2L)) }
+
+		verify(exactly = 0) { notificationPublisher.publish(any(), any(), any(), any(), any(), any()) }
 	}
 }

@@ -10,6 +10,9 @@ import team.cklob.mudda.domain.block.domain.repository.BlockRepository
 import team.cklob.mudda.domain.friend.domain.repository.FriendRepository
 import team.cklob.mudda.domain.media.domain.repository.MediaRepository
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
+import team.cklob.mudda.domain.notification.application.impl.NotificationPublisher
+import team.cklob.mudda.domain.notification.domain.type.NotificationTargetType
+import team.cklob.mudda.domain.notification.domain.type.NotificationType
 import team.cklob.mudda.domain.timecapsule.application.CapsuleProperties
 import team.cklob.mudda.domain.timecapsule.domain.entity.CapsuleRecipient
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
@@ -32,6 +35,7 @@ class CreateCapsuleService(
 	private val mediaRepository: MediaRepository,
 	private val passwordEncoder: PasswordEncoder,
 	private val properties: CapsuleProperties,
+	private val notificationPublisher: NotificationPublisher,
 ) {
 	@Transactional
 	fun execute(memberId: Long, request: CreateCapsuleRequest): CreateCapsuleResponse {
@@ -68,6 +72,18 @@ class CreateCapsuleService(
 		)
 		recipientRepository.saveAll(recipients.values.map { CapsuleRecipient(it, capsule) })
 		media.forEach { it.timeCapsule = capsule }
+		// Recipients are told a capsule is waiting for them, but not where or what is in it -- the whole
+		// point is that they have to go find it.
+		recipients.values.forEach {
+			notificationPublisher.publish(
+				recipient = it,
+				type = NotificationType.CAPSULE_RECEIVED,
+				title = "새로운 캡슐이 도착했어요",
+				content = "${member.nickname ?: "누군가"}님이 '${capsule.name.shortenForNotification()}'을(를) 남겼어요.",
+				targetId = requireNotNull(capsule.id),
+				targetType = NotificationTargetType.CAPSULE,
+			)
+		}
 		return CreateCapsuleResponse(requireNotNull(capsule.id), capsule.name, location.y, location.x, capsule.openAt, capsule.expiredAt, capsule.createdAt)
 	}
 

@@ -75,3 +75,10 @@ capsule:
   max-active-per-member: ${CAPSULE_MAX_ACTIVE_PER_MEMBER:100}
   max-expiration-years: ${CAPSULE_MAX_EXPIRATION_YEARS:10}
   max-nearby-radius-meter: ${CAPSULE_MAX_NEARBY_RADIUS_METER:5000}
+
+fcm:
+  # Off by default so the app boots without Firebase credentials (tests, CI, local dev). Notifications are
+  # still persisted and served by the API when disabled -- only the push banner is skipped.
+  enabled: ${FCM_ENABLED:false}
+  # Spring resource location of the service-account JSON, e.g. file:/etc/mudda/firebase.json
+  credentials: ${FCM_CREDENTIALS:}

@@ -11,6 +11,9 @@ import team.cklob.mudda.domain.friend.domain.type.FriendRequestStatus
 import team.cklob.mudda.domain.friend.presentation.request.SendFriendRequestRequest
 import team.cklob.mudda.domain.friend.presentation.response.SendFriendRequestResponse
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
+import team.cklob.mudda.domain.notification.application.impl.NotificationPublisher
+import team.cklob.mudda.domain.notification.domain.type.NotificationTargetType
+import team.cklob.mudda.domain.notification.domain.type.NotificationType
 import team.cklob.mudda.global.exception.AuthException
 import team.cklob.mudda.global.exception.BusinessException
 import team.cklob.mudda.global.exception.ErrorCode
@@ -20,6 +23,7 @@ class SendFriendRequestService(
 	private val friendRepository: FriendRepository,
 	private val memberRepository: MemberRepository,
 	private val blockRepository: BlockRepository,
+	private val notificationPublisher: NotificationPublisher,
 ) {
 	private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -70,6 +74,14 @@ class SendFriendRequestService(
 			throw BusinessException(ErrorCode.REVERSE_FRIEND_REQUEST_EXISTS)
 		}
 
+		notificationPublisher.publish(
+			recipient = receiver,
+			type = NotificationType.FRIEND_REQUESTED,
+			title = "새로운 친구 요청",
+			content = "${requester.nickname ?: "누군가"}님이 친구 요청을 보냈어요.",
+			targetId = requireNotNull(saved.id),
+			targetType = NotificationTargetType.FRIEND_REQUEST,
+		)
 		return SendFriendRequestResponse.from(saved)
 	}
 }

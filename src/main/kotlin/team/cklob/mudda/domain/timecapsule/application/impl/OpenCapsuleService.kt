@@ -8,13 +8,20 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import team.cklob.mudda.domain.media.application.MediaStorage
 import team.cklob.mudda.domain.media.domain.repository.MediaRepository
+import team.cklob.mudda.domain.feed.infrastructure.FeedBroadcaster
+import team.cklob.mudda.domain.feed.presentation.response.FeedResponse
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
+import team.cklob.mudda.domain.notification.application.impl.NotificationPublisher
+import team.cklob.mudda.domain.notification.domain.type.NotificationTargetType
+import team.cklob.mudda.domain.notification.domain.type.NotificationType
 import team.cklob.mudda.domain.timecapsule.application.CapsuleAccessPolicy
 import team.cklob.mudda.domain.timecapsule.domain.entity.CapsuleOpen
+import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleOpenRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleRecipientRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.TimeCapsuleRepository
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
+import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import team.cklob.mudda.domain.timecapsule.presentation.request.OpenCapsuleRequest
 import team.cklob.mudda.domain.timecapsule.presentation.response.MediaResponse
 import team.cklob.mudda.domain.timecapsule.presentation.response.OpenCapsuleResponse
@@ -33,6 +40,8 @@ class OpenCapsuleService(
 	private val mediaStorage: MediaStorage,
 	private val passwordEncoder: PasswordEncoder,
 	private val accessPolicy: CapsuleAccessPolicy,
+	private val notificationPublisher: NotificationPublisher,
+	private val feedBroadcaster: FeedBroadcaster,
 ) {
 	@Transactional
 	fun execute(memberId: Long, capsuleId: Long, request: OpenCapsuleRequest): OpenCapsuleResponse {
@@ -55,11 +64,32 @@ class OpenCapsuleService(
 				it.hasOpened = true
 				it.openedAt = now
 			}
+			announceFirstOpen(capsule, opened)
 		}
 		val media = mediaRepository.findAllByTimeCapsuleId(capsuleId).map {
 			MediaResponse(requireNotNull(it.id), mediaStorage.createAccessUrl(it.s3Key).url, it.mediaType)
 		}
 		return OpenCapsuleResponse(capsuleId, capsule.name, capsule.content.orEmpty(), writer(capsule), media, opened.openedAt)
+	}
+
+	// Only the first open is newsworthy: re-opening a capsule you already unlocked must not notify the
+	// owner again or repost to the feed.
+	private fun announceFirstOpen(capsule: TimeCapsule, opened: CapsuleOpen) {
+		val opener = opened.member
+		val capsuleId = requireNotNull(capsule.id)
+		if (capsule.member.id != opener.id) {
+			notificationPublisher.publish(
+				recipient = capsule.member,
+				type = NotificationType.CAPSULE_OPENED,
+				title = "캡슐이 열렸어요",
+				content = "${opener.nickname ?: "누군가"}님이 '${capsule.name.shortenForNotification()}'을(를) 열었어요.",
+				targetId = capsuleId,
+				targetType = NotificationTargetType.CAPSULE,
+			)
+		}
+		if (capsule.visibility == CapsuleVisibility.PUBLIC) {
+			feedBroadcaster.broadcast(FeedResponse.from(opened))
+		}
 	}
 
 	private fun verifyLock(lockType: CapsuleLockType, passwordHash: String?, answerHash: String?, request: OpenCapsuleRequest) {

@@ -7,6 +7,9 @@ import team.cklob.mudda.domain.friend.domain.repository.FriendRepository
 import team.cklob.mudda.domain.friend.domain.type.FriendRequestAction
 import team.cklob.mudda.domain.friend.domain.type.FriendRequestStatus
 import team.cklob.mudda.domain.friend.presentation.request.RespondFriendRequestRequest
+import team.cklob.mudda.domain.notification.application.impl.NotificationPublisher
+import team.cklob.mudda.domain.notification.domain.type.NotificationTargetType
+import team.cklob.mudda.domain.notification.domain.type.NotificationType
 import team.cklob.mudda.global.exception.BusinessException
 import team.cklob.mudda.global.exception.ErrorCode
 import java.time.LocalDateTime
@@ -15,6 +18,7 @@ import java.time.LocalDateTime
 class RespondFriendRequestService(
 	private val friendRepository: FriendRepository,
 	private val blockRepository: BlockRepository,
+	private val notificationPublisher: NotificationPublisher,
 ) {
 	@Transactional
 	fun execute(memberId: Long, requestId: Long, request: RespondFriendRequestRequest) {
@@ -36,6 +40,16 @@ class RespondFriendRequestService(
 				}
 				friend.status = FriendRequestStatus.ACCEPTED
 				friend.acceptedAt = LocalDateTime.now()
+				// Only the accepting direction notifies: a rejection is deliberately silent so the sender
+				// isn't told they were turned down.
+				notificationPublisher.publish(
+					recipient = friend.requester,
+					type = NotificationType.FRIEND_ACCEPTED,
+					title = "친구 요청이 수락됐어요",
+					content = "${friend.receiver.nickname ?: "누군가"}님과 친구가 되었어요.",
+					targetId = memberId,
+					targetType = NotificationTargetType.MEMBER,
+				)
 			}
 			FriendRequestAction.REJECT -> {
 				friend.status = FriendRequestStatus.REJECTED

@@ -12,8 +12,8 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import team.cklob.mudda.domain.member.domain.entity.Member
+import team.cklob.mudda.domain.notification.domain.type.NotificationTargetType
 import team.cklob.mudda.domain.notification.domain.type.NotificationType
-import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import team.cklob.mudda.global.common.entity.BaseCreatedAtEntity
 
 @Entity
@@ -23,10 +23,6 @@ class Notification(
 	@JoinColumn(name = "recipient_id", nullable = false)
 	val recipient: Member,
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "time_capsule_id")
-	val timeCapsule: TimeCapsule? = null,
-
 	@Enumerated(EnumType.STRING)
 	@Column(name = "notification_type", nullable = false, length = 30)
 	val notificationType: NotificationType,
@@ -35,7 +31,17 @@ class Notification(
 	val title: String,
 
 	@Column(nullable = false, length = 255)
-	val body: String,
+	val content: String,
+
+	// A notification points at whatever the client should navigate to when it is tapped: a capsule, a
+	// member, or a friend request. The pair is nullable together -- a notification that is purely
+	// informational has nowhere to navigate.
+	@Column(name = "target_id")
+	val targetId: Long? = null,
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "target_type", length = 30)
+	val targetType: NotificationTargetType? = null,
 
 	@Column(name = "is_read", nullable = false)
 	var isRead: Boolean = false,
