@@ -3,6 +3,7 @@ package team.cklob.mudda.domain.notification.infrastructure
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
+import com.google.firebase.messaging.FirebaseMessaging
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -28,7 +29,7 @@ class FcmConfig {
 
 	@Bean
 	fun notificationSender(firebaseApp: FirebaseApp?): NotificationSender {
-		if (firebaseApp != null) return FcmNotificationSender(firebaseApp)
+		if (firebaseApp != null) return FcmNotificationSender(FirebaseMessaging.getInstance(firebaseApp))
 		logger.info("FCM is disabled; push notifications will be recorded in the database only")
 		// ponytail: a no-op keeps every environment without Firebase credentials -- tests, CI, local dev --
 		// on the exact same code path as production instead of scattering `if (fcmEnabled)` through the

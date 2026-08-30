@@ -1,6 +1,5 @@
 package team.cklob.mudda.domain.notification.infrastructure
 
-import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.MessagingErrorCode
 import com.google.firebase.messaging.MulticastMessage
@@ -8,11 +7,16 @@ import com.google.firebase.messaging.Notification as FcmNotification
 import org.slf4j.LoggerFactory
 import team.cklob.mudda.domain.notification.application.NotificationSender
 
-class FcmNotificationSender(firebaseApp: FirebaseApp) : NotificationSender {
-	private val messaging = FirebaseMessaging.getInstance(firebaseApp)
+class FcmNotificationSender(private val messaging: FirebaseMessaging) : NotificationSender {
 	private val logger = LoggerFactory.getLogger(javaClass)
 
-	override fun send(tokens: List<String>, title: String, body: String): List<String> {
+	// FCM rejects a multicast carrying more than MAX_TOKENS_PER_REQUEST tokens outright, which would fail
+	// the send for every device rather than just the excess. Nothing caps how many tokens one member
+	// accumulates, so the list is chunked and each batch's permanently dead tokens are collected.
+	override fun send(tokens: List<String>, title: String, body: String): List<String> =
+		tokens.chunked(MAX_TOKENS_PER_REQUEST).flatMap { batch -> sendBatch(batch, title, body) }
+
+	private fun sendBatch(tokens: List<String>, title: String, body: String): List<String> {
 		val message = MulticastMessage.builder()
 			.setNotification(FcmNotification.builder().setTitle(title).setBody(body).build())
 			.addAllTokens(tokens)
@@ -32,5 +36,9 @@ class FcmNotificationSender(firebaseApp: FirebaseApp) : NotificationSender {
 				null
 			}
 		}
+	}
+
+	private companion object {
+		const val MAX_TOKENS_PER_REQUEST = 500
 	}
 }

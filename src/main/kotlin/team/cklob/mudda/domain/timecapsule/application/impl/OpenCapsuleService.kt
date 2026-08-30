@@ -82,7 +82,7 @@ class OpenCapsuleService(
 				recipient = capsule.member,
 				type = NotificationType.CAPSULE_OPENED,
 				title = "캡슐이 열렸어요",
-				content = "${opener.nickname ?: "누군가"}님이 '${capsule.name}'을(를) 열었어요.",
+				content = "${opener.nickname ?: "누군가"}님이 '${capsule.name.shortenForNotification()}'을(를) 열었어요.",
 				targetId = capsuleId,
 				targetType = NotificationTargetType.CAPSULE,
 			)

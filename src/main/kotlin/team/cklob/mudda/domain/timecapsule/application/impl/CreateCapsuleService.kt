@@ -79,7 +79,7 @@ class CreateCapsuleService(
 				recipient = it,
 				type = NotificationType.CAPSULE_RECEIVED,
 				title = "새로운 캡슐이 도착했어요",
-				content = "${member.nickname ?: "누군가"}님이 '${capsule.name}'을(를) 남겼어요.",
+				content = "${member.nickname ?: "누군가"}님이 '${capsule.name.shortenForNotification()}'을(를) 남겼어요.",
 				targetId = requireNotNull(capsule.id),
 				targetType = NotificationTargetType.CAPSULE,
 			)

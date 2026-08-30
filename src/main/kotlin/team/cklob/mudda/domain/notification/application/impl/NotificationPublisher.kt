@@ -24,11 +24,25 @@ class NotificationPublisher(
 		targetId: Long? = null,
 		targetType: NotificationTargetType? = null,
 	) {
-		notificationRepository.save(Notification(recipient, type, title, content, targetId, targetType))
+		// Notification text is assembled from user-supplied values (nicknames, capsule names), so its length
+		// is not bounded by construction. Overflowing the column would throw on flush and roll back the
+		// caller's whole transaction -- failing a capsule creation because its banner text was too long.
+		// Callers keep their messages short; this is the backstop that makes that impossible to get wrong.
+		val safeTitle = title.truncateForColumn()
+		val safeContent = content.truncateForColumn()
+		notificationRepository.save(Notification(recipient, type, safeTitle, safeContent, targetId, targetType))
 		val recipientId = requireNotNull(recipient.id)
 		// Deferred to after commit so a rolled-back capsule open doesn't push a banner for a notification
 		// row that no longer exists. Deliberately a separate bean rather than a private method: @Async only
 		// takes effect through the Spring proxy, which a self-invocation would bypass.
-		afterCommit { pushSender.send(recipientId, title, content) }
+		afterCommit { pushSender.send(recipientId, safeTitle, safeContent) }
+	}
+
+	private fun String.truncateForColumn() =
+		if (length <= MAX_TEXT_LENGTH) this else take(MAX_TEXT_LENGTH - 1) + "…"
+
+	private companion object {
+		// Matches the VARCHAR(255) width of tbl_notification.title and .content.
+		const val MAX_TEXT_LENGTH = 255
 	}
 }
