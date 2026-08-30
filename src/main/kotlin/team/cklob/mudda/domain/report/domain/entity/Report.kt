@@ -10,7 +10,11 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import team.cklob.mudda.domain.member.domain.entity.Member
+import team.cklob.mudda.domain.report.domain.type.ReportReason
+import team.cklob.mudda.domain.report.domain.type.ReportTargetType
 import team.cklob.mudda.global.common.entity.BaseCreatedAtEntity
 
 @Entity
@@ -28,14 +32,16 @@ class Report(
 	@JoinColumn(name = "reporter_id", nullable = false)
 	val reporter: Member,
 
+	@Enumerated(EnumType.STRING)
 	@Column(name = "target_type", nullable = false, length = 30)
-	val targetType: String,
+	val targetType: ReportTargetType,
 
 	@Column(name = "target_id", nullable = false)
 	val targetId: Long,
 
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 30)
-	val reason: String,
+	val reason: ReportReason,
 
 	@Column(length = 500)
 	val description: String? = null,

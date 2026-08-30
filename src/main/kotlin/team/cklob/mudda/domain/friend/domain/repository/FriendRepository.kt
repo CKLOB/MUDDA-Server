@@ -89,20 +89,51 @@ interface FriendRepository : JpaRepository<Friend, Long> {
 	)
 	fun findFriendships(@Param("memberId") memberId: Long, pageable: Pageable): Page<Friend>
 
+	// Blocked counterparts are excluded in SQL, the same NOT EXISTS shape findFriendships uses. Without it
+	// a blocked member's pending request stays visible even though RespondFriendRequestService re-checks
+	// the block and refuses the accept -- the receiver would see a request they can never act on.
 	@Query(
-		"""
+		value = """
 		SELECT f FROM Friend f JOIN FETCH f.requester JOIN FETCH f.receiver
 		WHERE f.receiver.id = :receiverId AND f.status = :status
+		  AND NOT EXISTS (
+			  SELECT 1 FROM Block b
+			  WHERE (b.blocker.id = :receiverId AND b.blocked.id = f.requester.id)
+			     OR (b.blocked.id = :receiverId AND b.blocker.id = f.requester.id)
+		  )
 		ORDER BY f.createdAt DESC, f.id DESC
+		""",
+		countQuery = """
+		SELECT COUNT(f) FROM Friend f
+		WHERE f.receiver.id = :receiverId AND f.status = :status
+		  AND NOT EXISTS (
+			  SELECT 1 FROM Block b
+			  WHERE (b.blocker.id = :receiverId AND b.blocked.id = f.requester.id)
+			     OR (b.blocked.id = :receiverId AND b.blocker.id = f.requester.id)
+		  )
 		""",
 	)
 	fun findReceivedRequests(@Param("receiverId") receiverId: Long, @Param("status") status: FriendRequestStatus, pageable: Pageable): Page<Friend>
 
 	@Query(
-		"""
+		value = """
 		SELECT f FROM Friend f JOIN FETCH f.requester JOIN FETCH f.receiver
 		WHERE f.requester.id = :requesterId AND f.status = :status
+		  AND NOT EXISTS (
+			  SELECT 1 FROM Block b
+			  WHERE (b.blocker.id = :requesterId AND b.blocked.id = f.receiver.id)
+			     OR (b.blocked.id = :requesterId AND b.blocker.id = f.receiver.id)
+		  )
 		ORDER BY f.createdAt DESC, f.id DESC
+		""",
+		countQuery = """
+		SELECT COUNT(f) FROM Friend f
+		WHERE f.requester.id = :requesterId AND f.status = :status
+		  AND NOT EXISTS (
+			  SELECT 1 FROM Block b
+			  WHERE (b.blocker.id = :requesterId AND b.blocked.id = f.receiver.id)
+			     OR (b.blocked.id = :requesterId AND b.blocker.id = f.receiver.id)
+		  )
 		""",
 	)
 	fun findSentRequests(@Param("requesterId") requesterId: Long, @Param("status") status: FriendRequestStatus, pageable: Pageable): Page<Friend>

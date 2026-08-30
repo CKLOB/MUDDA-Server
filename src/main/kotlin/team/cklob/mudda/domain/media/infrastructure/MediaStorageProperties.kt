@@ -12,6 +12,9 @@ data class MediaStorageProperties(
 	val maxImageSize: Long = 10 * 1024 * 1024,
 	val maxVoiceSize: Long = 20 * 1024 * 1024,
 	val maxVideoSize: Long = 100 * 1024 * 1024,
+	// How long a registered-but-unattached media row is kept before the cleanup job reclaims it. Must stay
+	// comfortably longer than the time a user might spend composing a capsule after picking their photos.
+	val pendingRetention: Duration = Duration.ofDays(1),
 ) {
 	fun maxSizeFor(mediaType: MediaType) = when (mediaType) {
 		MediaType.IMAGE -> maxImageSize
