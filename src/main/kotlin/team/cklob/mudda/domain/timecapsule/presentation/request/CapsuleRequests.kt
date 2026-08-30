@@ -6,6 +6,8 @@ import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.Max
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import java.time.LocalDateTime
@@ -19,9 +21,36 @@ data class CreateCapsuleRequest(
 	@Schema(description = "캡슐 제목", example = "첫 캡슐")
 	val name: String,
 
-	@field:NotBlank
-	@Schema(description = "캡슐 내용. 저장 시 AES-256-GCM으로 암호화됩니다.", example = "10년 뒤의 나에게")
-	val content: String,
+	@Schema(
+		description = "평문 캡슐 내용. lockType이 NONE일 때만 사용하며, 서버가 AES-256-GCM으로 암호화해 보관합니다. " +
+			"잠금이 있는 캡슐에서는 서버가 평문을 받아서는 안 되므로 생략하고 contentCipher를 보내야 합니다.",
+		example = "10년 뒤의 나에게",
+		nullable = true,
+	)
+	val content: String? = null,
+
+	@Schema(
+		description = "클라이언트가 CEK로 암호화한 본문 blob(Base64). lockType이 PASSWORD 또는 QUESTION일 때 필수입니다. " +
+			"서버는 이 값을 해독할 수 없습니다.",
+		nullable = true,
+	)
+	val contentCipher: String? = null,
+
+	@Schema(
+		description = "CEK를 Shamir로 분할한 조각 중 서버에 맡길 것들. lockType이 PASSWORD 또는 QUESTION일 때 필수이며, " +
+			"복원 임계값보다 적은 수의 평문 조각만 포함해야 합니다. 잠금 비밀에서 유도한 키로 감싼 조각은 isWrapped=true로 표시합니다.",
+		nullable = true,
+	)
+	val keyShares: List<KeyShareRequest>? = null,
+
+	@Schema(
+		description = "CEK 복원에 필요한 조각 수(Shamir 임계값). lockType이 PASSWORD 또는 QUESTION일 때 필수입니다. " +
+			"서버는 보관하는 평문 조각 수가 이 값보다 적은지 검증하며, 그렇지 않으면 요청을 거부합니다.",
+		example = "2",
+		nullable = true,
+	)
+	@field:Min(2) @field:Max(255)
+	val keyThreshold: Int? = null,
 
 	@field:DecimalMin("-90.0") @field:DecimalMax("90.0")
 	@Schema(description = "캡슐을 묻을 위도", example = "37.5")
@@ -92,4 +121,23 @@ data class UpdateGuestbookRequest(
 	@field:NotBlank
 	@Schema(description = "수정할 방명록 내용", example = "다시 다녀갑니다")
 	val content: String,
+)
+
+@Schema(description = "서버에 보관할 CEK 조각 하나")
+data class KeyShareRequest(
+	@field:NotNull
+	@field:Min(1) @field:Max(255)
+	@Schema(description = "Shamir x 좌표. 복원에 반드시 필요하므로 조각과 함께 보관됩니다.", example = "1")
+	val index: Int?,
+
+	@field:NotBlank
+	@Schema(description = "조각 데이터(Base64)", example = "q83vASNFZ4k=")
+	val data: String?,
+
+	@field:NotNull
+	@Schema(
+		description = "잠금 비밀에서 유도한 키로 감싼 조각인지 여부. true인 조각은 서버가 풀 수 없어 서버의 정족수에 포함되지 않습니다.",
+		example = "false",
+	)
+	val isWrapped: Boolean?,
 )

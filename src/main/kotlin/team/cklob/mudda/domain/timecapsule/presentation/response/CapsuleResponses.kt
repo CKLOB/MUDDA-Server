@@ -2,6 +2,7 @@ package team.cklob.mudda.domain.timecapsule.presentation.response
 
 import io.swagger.v3.oas.annotations.media.Schema
 import team.cklob.mudda.domain.media.domain.type.MediaType
+import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEncryptionMode
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import java.time.LocalDateTime
@@ -78,11 +79,33 @@ data class CapsuleDetailResponse(
 	@Schema(description = "최종 수정 시각") val updatedAt: LocalDateTime,
 )
 
-@Schema(description = "캡슐 열람 응답")
+@Schema(description = "CEK 조각 하나")
+data class KeyShareResponse(
+	@Schema(description = "Shamir x 좌표", example = "1") val index: Int,
+	@Schema(description = "조각 데이터(Base64)") val data: String,
+	@Schema(
+		description = "잠금 비밀에서 유도한 키로 감싸진 조각인지 여부. true이면 클라이언트가 비밀번호·정답으로 먼저 풀어야 합니다.",
+		example = "true",
+	)
+	val isWrapped: Boolean,
+)
+
+@Schema(
+	description = "캡슐 열람 응답. encryptionMode에 따라 채워지는 필드가 다릅니다 — " +
+		"SERVER_ENVELOPE이면 content에 평문이 담기고, CLIENT_E2E이면 content는 비어 있고 " +
+		"contentCipher와 keyShares로 클라이언트가 직접 복호화해야 합니다.",
+)
 data class OpenCapsuleResponse(
 	@Schema(description = "캡슐 ID", example = "1") val capsuleId: Long,
 	@Schema(description = "캡슐 제목", example = "첫 캡슐") val title: String,
-	@Schema(description = "복호화된 캡슐 내용") val content: String,
+	@Schema(description = "암호화 모드", example = "CLIENT_E2E") val encryptionMode: CapsuleEncryptionMode,
+	@Schema(description = "평문 내용. SERVER_ENVELOPE 캡슐에서만 채워집니다.", nullable = true) val content: String?,
+	@Schema(description = "클라이언트가 복호화해야 할 blob. CLIENT_E2E 캡슐에서만 채워집니다.", nullable = true)
+	val contentCipher: String?,
+	@Schema(description = "서버가 보관하던 CEK 조각들. CLIENT_E2E 캡슐에서만 채워집니다.")
+	val keyShares: List<KeyShareResponse>,
+	@Schema(description = "CEK 복원에 필요한 조각 수. CLIENT_E2E 캡슐에서만 채워집니다.", example = "2", nullable = true)
+	val keyThreshold: Int?,
 	@Schema(description = "작성자") val writer: WriterResponse,
 	@Schema(description = "첨부 미디어 목록") val media: List<MediaResponse>,
 	@Schema(description = "최초 열람 시각. 재열람해도 갱신되지 않습니다.") val openedAt: LocalDateTime,

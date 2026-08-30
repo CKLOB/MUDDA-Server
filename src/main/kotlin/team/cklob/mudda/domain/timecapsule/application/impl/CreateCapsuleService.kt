@@ -13,11 +13,15 @@ import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.notification.application.impl.NotificationPublisher
 import team.cklob.mudda.domain.notification.domain.type.NotificationTargetType
 import team.cklob.mudda.domain.notification.domain.type.NotificationType
+import team.cklob.mudda.domain.timecapsule.application.CapsuleEncryptionPolicy
 import team.cklob.mudda.domain.timecapsule.application.CapsuleProperties
 import team.cklob.mudda.domain.timecapsule.domain.entity.CapsuleRecipient
+import team.cklob.mudda.domain.timecapsule.domain.entity.KeyShare
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleRecipientRepository
+import team.cklob.mudda.domain.timecapsule.domain.repository.KeyShareRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.TimeCapsuleRepository
+import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEncryptionMode
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.presentation.request.CreateCapsuleRequest
 import team.cklob.mudda.domain.timecapsule.presentation.response.CreateCapsuleResponse
@@ -36,11 +40,15 @@ class CreateCapsuleService(
 	private val passwordEncoder: PasswordEncoder,
 	private val properties: CapsuleProperties,
 	private val notificationPublisher: NotificationPublisher,
+	private val keyShareRepository: KeyShareRepository,
+	private val encryptionPolicy: CapsuleEncryptionPolicy,
 ) {
 	@Transactional
 	fun execute(memberId: Long, request: CreateCapsuleRequest): CreateCapsuleResponse {
 		val now = LocalDateTime.now()
 		validate(request, now)
+		val encryptionMode = encryptionPolicy.resolveMode(request.lockType)
+		encryptionPolicy.validate(request, encryptionMode)
 		if (capsuleRepository.countActiveByMemberId(memberId, now) >= properties.maxActivePerMember) {
 			throw BusinessException(ErrorCode.CAPSULE_LIMIT_EXCEEDED)
 		}
@@ -58,7 +66,11 @@ class CreateCapsuleService(
 			TimeCapsule(
 				member = member,
 				name = request.name.trim(),
-				content = request.content,
+				// Exactly one of the two is set, enforced by CapsuleEncryptionPolicy. For CLIENT_E2E the
+				// stored value is the client's ciphertext, which the server cannot open.
+				content = request.content ?: request.contentCipher,
+				encryptionMode = encryptionMode,
+				keyThreshold = request.keyThreshold,
 				visibility = request.visibility,
 				lockType = request.lockType,
 				passwordHash = request.password?.let(passwordEncoder::encode),
@@ -70,6 +82,13 @@ class CreateCapsuleService(
 				expiredAt = request.expiredAt,
 			),
 		)
+		if (encryptionMode == CapsuleEncryptionMode.CLIENT_E2E) {
+			keyShareRepository.saveAll(
+				request.keyShares.orEmpty().map {
+					KeyShare(capsule, requireNotNull(it.index), requireNotNull(it.data), requireNotNull(it.isWrapped))
+				},
+			)
+		}
 		recipientRepository.saveAll(recipients.values.map { CapsuleRecipient(it, capsule) })
 		media.forEach { it.timeCapsule = capsule }
 		// Recipients are told a capsule is waiting for them, but not where or what is in it -- the whole

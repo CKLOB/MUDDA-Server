@@ -18,11 +18,14 @@ import team.cklob.mudda.domain.timecapsule.application.CapsuleAccessPolicy
 import team.cklob.mudda.domain.timecapsule.domain.entity.CapsuleOpen
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleOpenRepository
+import team.cklob.mudda.domain.timecapsule.domain.repository.KeyShareRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleRecipientRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.TimeCapsuleRepository
+import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEncryptionMode
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import team.cklob.mudda.domain.timecapsule.presentation.request.OpenCapsuleRequest
+import team.cklob.mudda.domain.timecapsule.presentation.response.KeyShareResponse
 import team.cklob.mudda.domain.timecapsule.presentation.response.MediaResponse
 import team.cklob.mudda.domain.timecapsule.presentation.response.OpenCapsuleResponse
 import team.cklob.mudda.global.exception.BusinessException
@@ -42,6 +45,7 @@ class OpenCapsuleService(
 	private val accessPolicy: CapsuleAccessPolicy,
 	private val notificationPublisher: NotificationPublisher,
 	private val feedBroadcaster: FeedBroadcaster,
+	private val keyShareRepository: KeyShareRepository,
 ) {
 	@Transactional
 	fun execute(memberId: Long, capsuleId: Long, request: OpenCapsuleRequest): OpenCapsuleResponse {
@@ -69,7 +73,28 @@ class OpenCapsuleService(
 		val media = mediaRepository.findAllByTimeCapsuleId(capsuleId).map {
 			MediaResponse(requireNotNull(it.id), mediaStorage.createAccessUrl(it.s3Key).url, it.mediaType)
 		}
-		return OpenCapsuleResponse(capsuleId, capsule.name, capsule.content.orEmpty(), writer(capsule), media, opened.openedAt)
+		// The lock has been verified by this point, which is what gates release of the server's shares. For a
+		// CLIENT_E2E capsule the server hands back its sub-threshold shares and the blob and stops there --
+		// it has no key to decrypt with, and returning `content` would be a lie about what it holds.
+		val e2e = capsule.encryptionMode == CapsuleEncryptionMode.CLIENT_E2E
+		val shares = if (e2e) {
+			keyShareRepository.findAllByTimeCapsuleIdOrderByShareIndex(capsuleId)
+				.map { KeyShareResponse(it.shareIndex, it.shareData, it.isWrapped) }
+		} else {
+			emptyList()
+		}
+		return OpenCapsuleResponse(
+			capsuleId = capsuleId,
+			title = capsule.name,
+			encryptionMode = capsule.encryptionMode,
+			content = capsule.content.takeUnless { e2e },
+			contentCipher = capsule.content.takeIf { e2e },
+			keyShares = shares,
+			keyThreshold = capsule.keyThreshold,
+			writer = writer(capsule),
+			media = media,
+			openedAt = opened.openedAt,
+		)
 	}
 
 	// Only the first open is newsworthy: re-opening a capsule you already unlocked must not notify the
