@@ -43,30 +43,33 @@ class BlockServicesTest {
 		assertEquals(ErrorCode.MEMBER_NOT_FOUND, error.errorCode)
 	}
 
-	// Blocking twice lands on the same end state, so it returns the existing row rather than a conflict
-	// the client would have to special-case.
+	// Blocking twice lands on the same end state, so the existing row is returned rather than a conflict
+	// the client would have to special-case. insertIfAbsent reports 0 rows affected for the repeat, which
+	// is also the path a concurrent loser takes.
 	@Test fun `blocking an already blocked member is idempotent`() {
 		val existing = Block(blocker = member(1), blocked = member(2), id = 9)
 		every { memberRepository.findById(2) } returns Optional.of(member(2))
+		every { memberRepository.existsById(1) } returns true
+		every { blockRepository.insertIfAbsent(1, 2) } returns 0
 		every { blockRepository.findByBlockerIdAndBlockedId(1, 2) } returns Optional.of(existing)
 
 		val response = createService.execute(1, CreateBlockRequest(2))
 
 		assertEquals(9, response.blockId)
-		verify(exactly = 0) { blockRepository.save(any()) }
 	}
 
 	// The whole block policy rests on read-path filtering: nothing is deleted, so unblocking restores the
 	// prior friendship and pending requests for free.
 	@Test fun `blocking writes one row and deletes nothing`() {
 		every { memberRepository.findById(2) } returns Optional.of(member(2))
-		every { memberRepository.findById(1) } returns Optional.of(member(1))
-		every { blockRepository.findByBlockerIdAndBlockedId(1, 2) } returns Optional.empty()
-		every { blockRepository.save(any()) } answers { Block(member(1), member(2), id = 5) }
+		every { memberRepository.existsById(1) } returns true
+		every { blockRepository.insertIfAbsent(1, 2) } returns 1
+		every { blockRepository.findByBlockerIdAndBlockedId(1, 2) } returns Optional.of(Block(member(1), member(2), id = 5))
 
-		createService.execute(1, CreateBlockRequest(2))
+		val response = createService.execute(1, CreateBlockRequest(2))
 
-		verify(exactly = 1) { blockRepository.save(any()) }
+		assertEquals(5, response.blockId)
+		verify(exactly = 1) { blockRepository.insertIfAbsent(1, 2) }
 		verify(exactly = 0) { blockRepository.delete(any()) }
 	}
 

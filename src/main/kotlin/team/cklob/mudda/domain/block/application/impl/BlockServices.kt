@@ -3,7 +3,6 @@ package team.cklob.mudda.domain.block.application.impl
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import team.cklob.mudda.domain.block.domain.entity.Block
 import team.cklob.mudda.domain.block.domain.repository.BlockRepository
 import team.cklob.mudda.domain.block.presentation.request.CreateBlockRequest
 import team.cklob.mudda.domain.block.presentation.response.BlockResponse
@@ -29,17 +28,16 @@ class CreateBlockService(
 
 		val target = memberRepository.findById(targetId).orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
 		if (target.withdrawnAt != null) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
+		if (!memberRepository.existsById(memberId)) throw BusinessException(ErrorCode.MEMBER_NOT_FOUND)
 
-		// Blocking twice is the same end state as blocking once, so the existing row is returned rather
-		// than raising a conflict the client would have to special-case.
-		val existing = blockRepository.findByBlockerIdAndBlockedId(memberId, targetId).orElse(null)
-		if (existing != null) {
-			return CreateBlockResponse(requireNotNull(existing.id), targetId, existing.createdAt)
-		}
-
-		val blocker = memberRepository.findById(memberId).orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
-		val saved = blockRepository.save(Block(blocker = blocker, blocked = target))
-		return CreateBlockResponse(requireNotNull(saved.id), targetId, saved.createdAt)
+		// Blocking twice is the same end state as blocking once, so the existing row is returned rather than
+		// raising a conflict the client would have to special-case. The insert is atomic so two concurrent
+		// requests both get that answer instead of one of them hitting uq_block_blocker_blocked: the loser
+		// simply sees 0 rows affected and reads back the winner's row.
+		blockRepository.insertIfAbsent(memberId, targetId)
+		val block = blockRepository.findByBlockerIdAndBlockedId(memberId, targetId)
+			.orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
+		return CreateBlockResponse(requireNotNull(block.id), targetId, block.createdAt)
 	}
 }
 

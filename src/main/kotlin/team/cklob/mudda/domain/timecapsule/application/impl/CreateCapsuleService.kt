@@ -49,7 +49,7 @@ class CreateCapsuleService(
 		if (recipients.size != request.recipientIds.size || request.recipientIds.any { !validRecipient(memberId, it) }) {
 			throw BusinessException(ErrorCode.INVALID_CAPSULE_RECIPIENT)
 		}
-		val media = mediaRepository.findAllById(request.mediaIds)
+		val media = mediaRepository.findAllByIdForUpdate(request.mediaIds)
 		if (media.size != request.mediaIds.size || media.any { it.uploader.id != memberId || it.timeCapsule != null }) {
 			throw BusinessException(ErrorCode.INVALID_CAPSULE_MEDIA)
 		}

@@ -1,5 +1,7 @@
 package team.cklob.mudda.domain.report.application.impl
 
+import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import team.cklob.mudda.domain.member.domain.repository.MemberRepository
@@ -21,6 +23,8 @@ class CreateReportService(
 	private val capsuleRepository: TimeCapsuleRepository,
 	private val guestbookRepository: GuestbookRepository,
 ) {
+	private val logger = LoggerFactory.getLogger(javaClass)
+
 	@Transactional
 	fun execute(memberId: Long, request: CreateReportRequest): CreateReportResponse {
 		val targetType = requireNotNull(request.targetType)
@@ -44,15 +48,24 @@ class CreateReportService(
 		}
 
 		val reporter = memberRepository.findById(memberId).orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
-		val saved = reportRepository.save(
-			Report(
-				reporter = reporter,
-				targetType = targetType,
-				targetId = targetId,
-				reason = reason,
-				description = request.description?.trim(),
-			),
-		)
+		val saved = try {
+			reportRepository.saveAndFlush(
+				Report(
+					reporter = reporter,
+					targetType = targetType,
+					targetId = targetId,
+					reason = reason,
+					description = request.description?.trim(),
+				),
+			)
+		} catch (e: DataIntegrityViolationException) {
+			// Two concurrent reports of the same target both pass the check above and collide on
+			// uq_report_reporter_target. The constraint is the real guarantee; this turns the loser into the
+			// same 409 the sequential path returns instead of a 500. Nothing needs to be persisted here, so
+			// letting the transaction roll back is the correct outcome.
+			logger.debug("concurrent duplicate report: reporter={}, target={}:{}", memberId, targetType, targetId, e)
+			throw BusinessException(ErrorCode.ALREADY_REPORTED)
+		}
 		return CreateReportResponse.from(saved)
 	}
 

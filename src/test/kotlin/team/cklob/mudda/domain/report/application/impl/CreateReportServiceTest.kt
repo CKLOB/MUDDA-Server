@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.dao.DataIntegrityViolationException
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.GeometryFactory
 import team.cklob.mudda.domain.member.domain.entity.Member
@@ -79,14 +80,14 @@ class CreateReportServiceTest {
 		val error = assertThrows<BusinessException> { service.execute(1, request) }
 
 		assertEquals(ErrorCode.ALREADY_REPORTED, error.errorCode)
-		verify(exactly = 0) { reportRepository.save(any()) }
+		verify(exactly = 0) { reportRepository.saveAndFlush(any()) }
 	}
 
 	@Test fun `a valid capsule report is stored`() {
 		every { capsuleRepository.findById(5) } returns Optional.of(capsule())
 		every { reportRepository.existsByReporterIdAndTargetTypeAndTargetId(1, ReportTargetType.CAPSULE, 5) } returns false
 		every { memberRepository.findById(1) } returns Optional.of(member(1))
-		every { reportRepository.save(any()) } answers {
+		every { reportRepository.saveAndFlush(any()) } answers {
 			Report(member(1), ReportTargetType.CAPSULE, 5, ReportReason.ABUSE, "욕설", id = 7)
 		}
 		val request = CreateReportRequest(ReportTargetType.CAPSULE, 5, ReportReason.ABUSE, "욕설")
@@ -95,5 +96,19 @@ class CreateReportServiceTest {
 
 		assertEquals(7, response.reportId)
 		assertEquals(ReportReason.ABUSE, response.reason)
+	}
+
+	// A concurrent duplicate slips past the exists check and is stopped by uq_report_reporter_target. The
+	// violation must surface as the same 409 the sequential path returns, not a 500.
+	@Test fun `a unique violation from a concurrent duplicate becomes ALREADY_REPORTED`() {
+		every { capsuleRepository.findById(5) } returns Optional.of(capsule())
+		every { reportRepository.existsByReporterIdAndTargetTypeAndTargetId(1, ReportTargetType.CAPSULE, 5) } returns false
+		every { memberRepository.findById(1) } returns Optional.of(member(1))
+		every { reportRepository.saveAndFlush(any()) } throws DataIntegrityViolationException("uq_report_reporter_target")
+		val request = CreateReportRequest(ReportTargetType.CAPSULE, 5, ReportReason.ABUSE)
+
+		val error = assertThrows<BusinessException> { service.execute(1, request) }
+
+		assertEquals(ErrorCode.ALREADY_REPORTED, error.errorCode)
 	}
 }
