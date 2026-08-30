@@ -69,6 +69,10 @@ media:
     max-image-size: ${MEDIA_MAX_IMAGE_SIZE:10485760}
     max-voice-size: ${MEDIA_MAX_VOICE_SIZE:20971520}
     max-video-size: ${MEDIA_MAX_VIDEO_SIZE:104857600}
+    pending-retention: ${MEDIA_PENDING_RETENTION:1d}
+  cleanup:
+    # Reclaims media rows that were registered but never attached to a capsule. Runs at 04:00 daily.
+    cron: ${MEDIA_CLEANUP_CRON:0 0 4 * * *}
 
 capsule:
   open-radius-meter: ${CAPSULE_OPEN_RADIUS_METER:100}
