@@ -1,0 +1,22 @@
+[Unit]
+Description=MUDDA runtime health and error alert check
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/mudda-runtime-alert/mudda-runtime-alert.sh
+User=root
+Group=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadOnlyPaths=/opt/mudda /etc/mudda/discord-alert.env
+ReadWritePaths=/var/lib/mudda/runtime-alerts
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+TimeoutStartSec=30
