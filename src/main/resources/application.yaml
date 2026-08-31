@@ -75,6 +75,9 @@ media:
     cron: ${MEDIA_CLEANUP_CRON:0 0 4 * * *}
 
 capsule:
+  key-share-cleanup:
+    # Removes CEK shares of expired capsules, which can never be opened again. Runs at 04:30 daily.
+    cron: ${CAPSULE_KEY_SHARE_CLEANUP_CRON:0 30 4 * * *}
   open-radius-meter: ${CAPSULE_OPEN_RADIUS_METER:100}
   max-active-per-member: ${CAPSULE_MAX_ACTIVE_PER_MEMBER:100}
   max-expiration-years: ${CAPSULE_MAX_EXPIRATION_YEARS:10}

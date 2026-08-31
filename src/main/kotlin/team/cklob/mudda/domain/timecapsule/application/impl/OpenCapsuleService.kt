@@ -3,7 +3,6 @@ package team.cklob.mudda.domain.timecapsule.application.impl
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.GeometryFactory
 import org.locationtech.jts.geom.PrecisionModel
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import team.cklob.mudda.domain.media.application.MediaStorage
@@ -18,11 +17,14 @@ import team.cklob.mudda.domain.timecapsule.application.CapsuleAccessPolicy
 import team.cklob.mudda.domain.timecapsule.domain.entity.CapsuleOpen
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleOpenRepository
+import team.cklob.mudda.domain.timecapsule.domain.repository.KeyShareRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleRecipientRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.TimeCapsuleRepository
+import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEncryptionMode
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import team.cklob.mudda.domain.timecapsule.presentation.request.OpenCapsuleRequest
+import team.cklob.mudda.domain.timecapsule.presentation.response.KeyShareResponse
 import team.cklob.mudda.domain.timecapsule.presentation.response.MediaResponse
 import team.cklob.mudda.domain.timecapsule.presentation.response.OpenCapsuleResponse
 import team.cklob.mudda.global.exception.BusinessException
@@ -38,10 +40,10 @@ class OpenCapsuleService(
 	private val memberRepository: MemberRepository,
 	private val mediaRepository: MediaRepository,
 	private val mediaStorage: MediaStorage,
-	private val passwordEncoder: PasswordEncoder,
 	private val accessPolicy: CapsuleAccessPolicy,
 	private val notificationPublisher: NotificationPublisher,
 	private val feedBroadcaster: FeedBroadcaster,
+	private val keyShareRepository: KeyShareRepository,
 ) {
 	@Transactional
 	fun execute(memberId: Long, capsuleId: Long, request: OpenCapsuleRequest): OpenCapsuleResponse {
@@ -56,7 +58,12 @@ class OpenCapsuleService(
 		}
 		var opened = openRepository.findByTimeCapsuleIdAndMemberId(capsuleId, memberId).orElse(null)
 		if (opened == null) {
-			verifyLock(capsule.lockType, capsule.passwordHash, capsule.answerHash, request)
+			// No lock check here on purpose. The server verifies location and access only; proving knowledge
+			// of the lock secret happens on the client, when it unwraps its key share. Verifying server-side
+			// would mean receiving the secret in plaintext, and a server that has seen it can derive the same
+			// wrapping key and open every capsule it stores -- which is exactly the guarantee CLIENT_E2E is
+			// supposed to provide. A wrong secret fails the share's GCM tag check instead, which is strictly
+			// stronger than a bcrypt comparison: it cannot be bypassed by anything the server does.
 			val member = memberRepository.findById(memberId).orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
 			val openLocation = GeometryFactory(PrecisionModel(), 4326).createPoint(Coordinate(request.longitude, request.latitude))
 			opened = openRepository.save(CapsuleOpen(capsule, member, now, openLocation))
@@ -69,7 +76,28 @@ class OpenCapsuleService(
 		val media = mediaRepository.findAllByTimeCapsuleId(capsuleId).map {
 			MediaResponse(requireNotNull(it.id), mediaStorage.createAccessUrl(it.s3Key).url, it.mediaType)
 		}
-		return OpenCapsuleResponse(capsuleId, capsule.name, capsule.content.orEmpty(), writer(capsule), media, opened.openedAt)
+		// The lock has been verified by this point, which is what gates release of the server's shares. For a
+		// CLIENT_E2E capsule the server hands back its sub-threshold shares and the blob and stops there --
+		// it has no key to decrypt with, and returning `content` would be a lie about what it holds.
+		val e2e = capsule.encryptionMode == CapsuleEncryptionMode.CLIENT_E2E
+		val shares = if (e2e) {
+			keyShareRepository.findAllByTimeCapsuleIdOrderByShareIndex(capsuleId)
+				.map { KeyShareResponse(it.shareIndex, it.shareData, it.isWrapped) }
+		} else {
+			emptyList()
+		}
+		return OpenCapsuleResponse(
+			capsuleId = capsuleId,
+			title = capsule.name,
+			encryptionMode = capsule.encryptionMode,
+			content = capsule.content.takeUnless { e2e },
+			contentCipher = capsule.content.takeIf { e2e },
+			keyShares = shares,
+			keyThreshold = capsule.keyThreshold,
+			writer = writer(capsule),
+			media = media,
+			openedAt = opened.openedAt,
+		)
 	}
 
 	// Only the first open is newsworthy: re-opening a capsule you already unlocked must not notify the
@@ -90,14 +118,5 @@ class OpenCapsuleService(
 		if (capsule.visibility == CapsuleVisibility.PUBLIC) {
 			feedBroadcaster.broadcast(FeedResponse.from(opened))
 		}
-	}
-
-	private fun verifyLock(lockType: CapsuleLockType, passwordHash: String?, answerHash: String?, request: OpenCapsuleRequest) {
-		val matches = when (lockType) {
-			CapsuleLockType.NONE -> true
-			CapsuleLockType.PASSWORD -> request.password?.let { passwordEncoder.matches(it, passwordHash) } == true
-			CapsuleLockType.QUESTION -> request.answer?.trim()?.lowercase()?.let { passwordEncoder.matches(it, answerHash) } == true
-		}
-		if (!matches) throw CapsuleException(ErrorCode.CAPSULE_LOCK_FAILED)
 	}
 }

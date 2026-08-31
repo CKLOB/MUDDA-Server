@@ -3,7 +3,6 @@ package team.cklob.mudda.domain.timecapsule.application.impl
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.GeometryFactory
 import org.locationtech.jts.geom.PrecisionModel
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import team.cklob.mudda.domain.block.domain.repository.BlockRepository
@@ -13,12 +12,15 @@ import team.cklob.mudda.domain.member.domain.repository.MemberRepository
 import team.cklob.mudda.domain.notification.application.impl.NotificationPublisher
 import team.cklob.mudda.domain.notification.domain.type.NotificationTargetType
 import team.cklob.mudda.domain.notification.domain.type.NotificationType
+import team.cklob.mudda.domain.timecapsule.application.CapsuleEncryptionPolicy
 import team.cklob.mudda.domain.timecapsule.application.CapsuleProperties
 import team.cklob.mudda.domain.timecapsule.domain.entity.CapsuleRecipient
+import team.cklob.mudda.domain.timecapsule.domain.entity.KeyShare
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleRecipientRepository
+import team.cklob.mudda.domain.timecapsule.domain.repository.KeyShareRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.TimeCapsuleRepository
-import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
+import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEncryptionMode
 import team.cklob.mudda.domain.timecapsule.presentation.request.CreateCapsuleRequest
 import team.cklob.mudda.domain.timecapsule.presentation.response.CreateCapsuleResponse
 import team.cklob.mudda.global.exception.BusinessException
@@ -33,14 +35,17 @@ class CreateCapsuleService(
 	private val friendRepository: FriendRepository,
 	private val blockRepository: BlockRepository,
 	private val mediaRepository: MediaRepository,
-	private val passwordEncoder: PasswordEncoder,
 	private val properties: CapsuleProperties,
 	private val notificationPublisher: NotificationPublisher,
+	private val keyShareRepository: KeyShareRepository,
+	private val encryptionPolicy: CapsuleEncryptionPolicy,
 ) {
 	@Transactional
 	fun execute(memberId: Long, request: CreateCapsuleRequest): CreateCapsuleResponse {
 		val now = LocalDateTime.now()
 		validate(request, now)
+		val encryptionMode = encryptionPolicy.resolveMode(request.lockType)
+		encryptionPolicy.validate(request, encryptionMode)
 		if (capsuleRepository.countActiveByMemberId(memberId, now) >= properties.maxActivePerMember) {
 			throw BusinessException(ErrorCode.CAPSULE_LIMIT_EXCEEDED)
 		}
@@ -58,18 +63,29 @@ class CreateCapsuleService(
 			TimeCapsule(
 				member = member,
 				name = request.name.trim(),
-				content = request.content,
+				// Exactly one of the two is set, enforced by CapsuleEncryptionPolicy. For CLIENT_E2E the
+				// stored value is the client's ciphertext, which the server cannot open.
+				content = request.content ?: request.contentCipher,
+				encryptionMode = encryptionMode,
+				keyThreshold = request.keyThreshold,
 				visibility = request.visibility,
 				lockType = request.lockType,
-				passwordHash = request.password?.let(passwordEncoder::encode),
+				// question is display text only; the answer never reaches the server, so there is nothing to
+				// hash and no password_hash/answer_hash to write.
 				question = request.question?.trim(),
-				answerHash = request.answer?.trim()?.lowercase()?.let(passwordEncoder::encode),
 				location = location,
 				openRadiusMeter = properties.openRadiusMeter,
 				openAt = request.openAt,
 				expiredAt = request.expiredAt,
 			),
 		)
+		if (encryptionMode == CapsuleEncryptionMode.CLIENT_E2E) {
+			keyShareRepository.saveAll(
+				request.keyShares.orEmpty().map {
+					KeyShare(capsule, requireNotNull(it.index), requireNotNull(it.data), requireNotNull(it.isWrapped))
+				},
+			)
+		}
 		recipientRepository.saveAll(recipients.values.map { CapsuleRecipient(it, capsule) })
 		media.forEach { it.timeCapsule = capsule }
 		// Recipients are told a capsule is waiting for them, but not where or what is in it -- the whole
@@ -95,11 +111,8 @@ class CreateCapsuleService(
 		if (request.openAt.isBefore(now) || request.expiredAt?.let { !it.isAfter(request.openAt) || it.isAfter(request.openAt.plusYears(properties.maxExpirationYears)) } == true) {
 			throw BusinessException(ErrorCode.INVALID_INPUT)
 		}
-		val validLock = when (request.lockType) {
-			CapsuleLockType.NONE -> request.password == null && request.question == null && request.answer == null
-			CapsuleLockType.PASSWORD -> !request.password.isNullOrBlank() && request.question == null && request.answer == null
-			CapsuleLockType.QUESTION -> request.password == null && !request.question.isNullOrBlank() && !request.answer.isNullOrBlank()
-		}
-		if (!validLock) throw BusinessException(ErrorCode.INVALID_INPUT)
+		// Lock field consistency moved to CapsuleEncryptionPolicy: with the secret no longer sent to the
+		// server, the only lock field left to check is the question text, and that check belongs next to the
+		// rest of the encryption contract.
 	}
 }

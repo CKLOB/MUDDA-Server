@@ -60,8 +60,14 @@ class CapsuleController(
 ) {
 	@Operation(
 		summary = "타임캡슐 묻기",
-		description = "지정한 좌표에 캡슐을 묻습니다. 수신자는 친구여야 하며, 첨부 미디어는 본인이 업로드했고 아직 다른 캡슐에 붙지 않은 것이어야 합니다. " +
-			"잠금 유형에 따라 password 또는 question/answer 조합이 필요합니다.",
+		description = "지정한 좌표에 캡슐을 묻습니다. 수신자는 친구여야 하며, 첨부 미디어는 본인이 업로드했고 아직 다른 캡슐에 붙지 않은 것이어야 합니다.\n\n" +
+			"**암호화 모드는 lockType에서 결정됩니다.**\n" +
+			"- `NONE` → SERVER_ENVELOPE. 평문 `content`를 보내면 서버가 암호화해 보관합니다. " +
+			"이 경우 서버는 내용을 읽을 수 있습니다. 잠금이 없는 캡슐의 열람 조건은 좌표뿐이고 서버가 좌표를 알고 있어 종단간 암호화가 원리적으로 불가능합니다.\n" +
+			"- `PASSWORD`/`QUESTION` → CLIENT_E2E. 클라이언트가 CEK로 암호화한 `contentCipher`, Shamir 조각 `keyShares`, " +
+			"임계값 `keyThreshold`를 보냅니다. 평문 `content`는 보낼 수 없습니다. " +
+			"서버가 보관하는 평문 조각 수는 임계값보다 적어야 하며(그렇지 않으면 SERVER_HOLDS_KEY_QUORUM), " +
+			"잠금 비밀로 감싼 조각(`isWrapped=true`)이 최소 하나 있어야 합니다.",
 	)
 	@SwaggerApiResponses(
 		SwaggerApiResponse(responseCode = "201", description = "생성 성공"),
@@ -133,8 +139,13 @@ class CapsuleController(
 
 	@Operation(
 		summary = "캡슐 열람",
-		description = "현재 위치를 서버에서 PostGIS로 재검증한 뒤 캡슐 내용을 반환합니다. 최초 열람 시에만 잠금(비밀번호·질문)을 검증하며, " +
-			"재열람은 위치만 다시 검증합니다. 최초 열람은 작성자에게 알림을 보내고, 공개 캡슐이면 발견 피드에 실립니다.",
+		description = "현재 위치를 서버에서 PostGIS로 재검증한 뒤 캡슐을 엽니다. 최초 열람 시에만 잠금(비밀번호·질문)을 검증하며, " +
+			"재열람은 위치만 다시 검증합니다. 최초 열람은 작성자에게 알림을 보내고, 공개 캡슐이면 발견 피드에 실립니다.\n\n" +
+			"**응답은 encryptionMode에 따라 달라집니다.**\n" +
+			"- `SERVER_ENVELOPE` → `content`에 평문이 담깁니다.\n" +
+			"- `CLIENT_E2E` → `content`는 null이고 `contentCipher`와 `keyShares`가 반환됩니다. " +
+			"클라이언트가 비밀번호·정답으로 `isWrapped=true` 조각을 풀고, `keyThreshold`개를 모아 CEK를 복원해 직접 복호화해야 합니다. " +
+			"서버는 이 캡슐의 평문을 가지고 있지 않습니다.",
 	)
 	@SwaggerApiResponses(
 		SwaggerApiResponse(responseCode = "200", description = "열람 성공"),

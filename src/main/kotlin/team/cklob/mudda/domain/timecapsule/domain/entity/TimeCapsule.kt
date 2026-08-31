@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.locationtech.jts.geom.Point
 import team.cklob.mudda.domain.member.domain.entity.Member
+import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEncryptionMode
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import team.cklob.mudda.global.common.entity.BaseTimeEntity
@@ -30,7 +31,10 @@ class TimeCapsule(
 	@Column(nullable = false, length = 255)
 	val name: String,
 
-	// Encrypted at rest -- the column only ever holds a ContentCipher envelope blob, never the body itself.
+	// Never holds the body in plaintext. For SERVER_ENVELOPE capsules it is a ContentCipher envelope the
+	// server can open; for CLIENT_E2E capsules it is a blob the client encrypted under a key the server
+	// never received, and the converter simply adds a second at-rest layer over ciphertext.
+	//
 	// No @Lob: on PostgreSQL that maps a String to a large object, so the column would hold an OID pointing
 	// into pg_largeobject rather than the value itself, and the referenced object is not removed when the
 	// row is deleted. `TEXT` is unbounded, so nothing is gained by the large-object indirection anyway.
@@ -38,22 +42,33 @@ class TimeCapsule(
 	@Column(columnDefinition = "TEXT")
 	val content: String? = null,
 
+	// Which side holds the key. Read the mode rather than inferring it from lockType: the open path must
+	// never hand back a body for a capsule the server is not supposed to be able to read.
+	@Enumerated(EnumType.STRING)
+	@Column(name = "encryption_mode", nullable = false, length = 20)
+	val encryptionMode: CapsuleEncryptionMode = CapsuleEncryptionMode.SERVER_ENVELOPE,
+
+	// Number of shares needed to rebuild the content key. Null for SERVER_ENVELOPE capsules.
+	@Column(name = "key_threshold")
+	val keyThreshold: Int? = null,
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	val visibility: CapsuleVisibility,
 
+	// The lock is enforced by the client's ability to unwrap a key share, not by the server. lockType and
+	// question are kept only so the client knows what to prompt for.
+	//
+	// password_hash and answer_hash are intentionally no longer mapped: storing a hash of the lock secret
+	// bought nothing once verification moved to the client, and it left an offline-guessable artefact next
+	// to the wrapped share it protects. The columns stay in place (nullable, unwritten) so a previous blue
+	// container keeps working during a deployment; drop them in a later migration.
 	@Enumerated(EnumType.STRING)
 	@Column(name = "lock_type", nullable = false, length = 20)
 	val lockType: CapsuleLockType,
 
-	@Column(name = "password_hash", length = 255)
-	val passwordHash: String? = null,
-
 	@Column(length = 255)
 	val question: String? = null,
-
-	@Column(name = "answer_hash", length = 255)
-	val answerHash: String? = null,
 
 	@Column(nullable = false, columnDefinition = "geometry(Point,4326)")
 	val location: Point,

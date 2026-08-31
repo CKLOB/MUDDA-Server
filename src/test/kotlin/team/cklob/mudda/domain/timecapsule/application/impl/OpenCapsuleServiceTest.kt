@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.GeometryFactory
-import org.springframework.security.crypto.password.PasswordEncoder
 import team.cklob.mudda.domain.media.application.MediaStorage
 import team.cklob.mudda.domain.media.domain.repository.MediaRepository
 import team.cklob.mudda.domain.member.domain.entity.Member
@@ -23,7 +22,10 @@ import team.cklob.mudda.domain.timecapsule.domain.entity.CapsuleOpen
 import team.cklob.mudda.domain.timecapsule.domain.entity.TimeCapsule
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleOpenRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleRecipientRepository
+import team.cklob.mudda.domain.timecapsule.domain.repository.KeyShareRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.TimeCapsuleRepository
+import team.cklob.mudda.domain.timecapsule.domain.entity.KeyShare
+import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEncryptionMode
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleVisibility
 import team.cklob.mudda.domain.timecapsule.presentation.request.OpenCapsuleRequest
@@ -40,14 +42,14 @@ class OpenCapsuleServiceTest {
 	private val memberRepository = mockk<MemberRepository>()
 	private val mediaRepository = mockk<MediaRepository>()
 	private val mediaStorage = mockk<MediaStorage>()
-	private val passwordEncoder = mockk<PasswordEncoder>()
 	private val accessPolicy = mockk<CapsuleAccessPolicy>()
 	private val notificationPublisher = mockk<NotificationPublisher>(relaxed = true)
 	private val feedBroadcaster = mockk<FeedBroadcaster>(relaxed = true)
+	private val keyShareRepository = mockk<KeyShareRepository>(relaxed = true)
 	private val service = OpenCapsuleService(
 		capsuleRepository, openRepository, recipientRepository, memberRepository,
-		mediaRepository, mediaStorage, passwordEncoder, accessPolicy,
-		notificationPublisher, feedBroadcaster,
+		mediaRepository, mediaStorage, accessPolicy,
+		notificationPublisher, feedBroadcaster, keyShareRepository,
 	)
 
 	private val member = Member(
@@ -56,7 +58,7 @@ class OpenCapsuleServiceTest {
 	)
 	private val capsule = TimeCapsule(
 		member = member, name = "capsule", content = "secret", visibility = CapsuleVisibility.PRIVATE,
-		lockType = CapsuleLockType.PASSWORD, passwordHash = "hash",
+		lockType = CapsuleLockType.PASSWORD,
 		location = GeometryFactory().createPoint(Coordinate(127.0, 37.5)), openRadiusMeter = 100,
 		openAt = LocalDateTime.now().minusDays(1), id = 1,
 	)
@@ -76,7 +78,6 @@ class OpenCapsuleServiceTest {
 		assertEquals("secret", response.content)
 		assertEquals(openedAt, response.openedAt)
 		verify(exactly = 1) { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) }
-		verify(exactly = 0) { passwordEncoder.matches(any(), any()) }
 	}
 
 	@Test
@@ -116,13 +117,12 @@ class OpenCapsuleServiceTest {
 		every { accessPolicy.requireAccessible(capsule, 8, any()) } returns Unit
 		every { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) } returns true
 		every { openRepository.findByTimeCapsuleIdAndMemberId(1, 8) } returns Optional.empty()
-		every { passwordEncoder.matches("pw", "hash") } returns true
 		every { memberRepository.findById(8) } returns Optional.of(opener)
 		every { openRepository.save(any()) } answers { CapsuleOpen(capsule, opener, LocalDateTime.now(), id = 2) }
 		every { recipientRepository.findByTimeCapsuleIdAndMemberId(1, 8) } returns Optional.empty()
 		every { mediaRepository.findAllByTimeCapsuleId(1) } returns emptyList()
 
-		service.execute(8, 1, OpenCapsuleRequest(37.5, 127.0, password = "pw"))
+		service.execute(8, 1, OpenCapsuleRequest(37.5, 127.0))
 
 		verify(exactly = 1) {
 			notificationPublisher.publish(member, NotificationType.CAPSULE_OPENED, any(), any(), 1L, NotificationTargetType.CAPSULE)
@@ -136,14 +136,65 @@ class OpenCapsuleServiceTest {
 		every { accessPolicy.requireAccessible(capsule, 7, any()) } returns Unit
 		every { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) } returns true
 		every { openRepository.findByTimeCapsuleIdAndMemberId(1, 7) } returns Optional.empty()
-		every { passwordEncoder.matches("pw", "hash") } returns true
 		every { memberRepository.findById(7) } returns Optional.of(member)
 		every { openRepository.save(any()) } answers { CapsuleOpen(capsule, member, LocalDateTime.now(), id = 3) }
 		every { recipientRepository.findByTimeCapsuleIdAndMemberId(1, 7) } returns Optional.empty()
 		every { mediaRepository.findAllByTimeCapsuleId(1) } returns emptyList()
 
-		service.execute(7, 1, OpenCapsuleRequest(37.5, 127.0, password = "pw"))
+		service.execute(7, 1, OpenCapsuleRequest(37.5, 127.0))
 
 		verify(exactly = 0) { notificationPublisher.publish(any(), any(), any(), any(), any(), any()) }
+	}
+
+	// -------- client-side encryption --------
+
+	private val e2eCapsule = TimeCapsule(
+		member = member, name = "e2e", content = "CLIENT-CIPHERTEXT", visibility = CapsuleVisibility.PRIVATE,
+		lockType = CapsuleLockType.PASSWORD,
+		location = GeometryFactory().createPoint(Coordinate(127.0, 37.5)), openRadiusMeter = 100,
+		openAt = LocalDateTime.now().minusDays(1),
+		encryptionMode = CapsuleEncryptionMode.CLIENT_E2E, keyThreshold = 2, id = 2,
+	)
+
+	// The server has no key for a CLIENT_E2E capsule, so `content` must stay empty; putting the stored blob
+	// there would tell the client it received a decrypted body.
+	@Test fun `opening an end-to-end capsule returns shares and never a plaintext content field`() {
+		val opened = CapsuleOpen(e2eCapsule, member, LocalDateTime.now().minusHours(1), id = 4)
+		every { capsuleRepository.findByIdAndIsDeletedFalseForUpdate(2) } returns Optional.of(e2eCapsule)
+		every { accessPolicy.requireAccessible(e2eCapsule, 7, any()) } returns Unit
+		every { capsuleRepository.isWithinOpeningRadius(2, 37.5, 127.0) } returns true
+		every { openRepository.findByTimeCapsuleIdAndMemberId(2, 7) } returns Optional.of(opened)
+		every { mediaRepository.findAllByTimeCapsuleId(2) } returns emptyList()
+		every { keyShareRepository.findAllByTimeCapsuleIdOrderByShareIndex(2) } returns listOf(
+			KeyShare(e2eCapsule, 1, "server-share", isWrapped = false),
+			KeyShare(e2eCapsule, 2, "wrapped-share", isWrapped = true),
+		)
+
+		val response = service.execute(7, 2, OpenCapsuleRequest(37.5, 127.0))
+
+		assertEquals(null, response.content)
+		assertEquals("CLIENT-CIPHERTEXT", response.contentCipher)
+		assertEquals(CapsuleEncryptionMode.CLIENT_E2E, response.encryptionMode)
+		assertEquals(2, response.keyThreshold)
+		assertEquals(listOf(1, 2), response.keyShares.map { it.index })
+		assertEquals(listOf(false, true), response.keyShares.map { it.isWrapped })
+	}
+
+	// The server-envelope path is unchanged: it still returns the decrypted body and carries no shares.
+	@Test fun `opening a server envelope capsule returns content and no shares`() {
+		val opened = CapsuleOpen(capsule, member, LocalDateTime.now().minusHours(1), id = 5)
+		every { capsuleRepository.findByIdAndIsDeletedFalseForUpdate(1) } returns Optional.of(capsule)
+		every { accessPolicy.requireAccessible(capsule, 7, any()) } returns Unit
+		every { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) } returns true
+		every { openRepository.findByTimeCapsuleIdAndMemberId(1, 7) } returns Optional.of(opened)
+		every { mediaRepository.findAllByTimeCapsuleId(1) } returns emptyList()
+
+		val response = service.execute(7, 1, OpenCapsuleRequest(37.5, 127.0))
+
+		assertEquals("secret", response.content)
+		assertEquals(null, response.contentCipher)
+		assertEquals(CapsuleEncryptionMode.SERVER_ENVELOPE, response.encryptionMode)
+		assertEquals(emptyList(), response.keyShares)
+		verify(exactly = 0) { keyShareRepository.findAllByTimeCapsuleIdOrderByShareIndex(any()) }
 	}
 }
