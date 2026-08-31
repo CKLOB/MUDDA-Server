@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.GeometryFactory
-import org.springframework.security.crypto.password.PasswordEncoder
 import team.cklob.mudda.domain.media.application.MediaStorage
 import team.cklob.mudda.domain.media.domain.repository.MediaRepository
 import team.cklob.mudda.domain.member.domain.entity.Member
@@ -43,14 +42,13 @@ class OpenCapsuleServiceTest {
 	private val memberRepository = mockk<MemberRepository>()
 	private val mediaRepository = mockk<MediaRepository>()
 	private val mediaStorage = mockk<MediaStorage>()
-	private val passwordEncoder = mockk<PasswordEncoder>()
 	private val accessPolicy = mockk<CapsuleAccessPolicy>()
 	private val notificationPublisher = mockk<NotificationPublisher>(relaxed = true)
 	private val feedBroadcaster = mockk<FeedBroadcaster>(relaxed = true)
 	private val keyShareRepository = mockk<KeyShareRepository>(relaxed = true)
 	private val service = OpenCapsuleService(
 		capsuleRepository, openRepository, recipientRepository, memberRepository,
-		mediaRepository, mediaStorage, passwordEncoder, accessPolicy,
+		mediaRepository, mediaStorage, accessPolicy,
 		notificationPublisher, feedBroadcaster, keyShareRepository,
 	)
 
@@ -60,7 +58,7 @@ class OpenCapsuleServiceTest {
 	)
 	private val capsule = TimeCapsule(
 		member = member, name = "capsule", content = "secret", visibility = CapsuleVisibility.PRIVATE,
-		lockType = CapsuleLockType.PASSWORD, passwordHash = "hash",
+		lockType = CapsuleLockType.PASSWORD,
 		location = GeometryFactory().createPoint(Coordinate(127.0, 37.5)), openRadiusMeter = 100,
 		openAt = LocalDateTime.now().minusDays(1), id = 1,
 	)
@@ -80,7 +78,6 @@ class OpenCapsuleServiceTest {
 		assertEquals("secret", response.content)
 		assertEquals(openedAt, response.openedAt)
 		verify(exactly = 1) { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) }
-		verify(exactly = 0) { passwordEncoder.matches(any(), any()) }
 	}
 
 	@Test
@@ -120,13 +117,12 @@ class OpenCapsuleServiceTest {
 		every { accessPolicy.requireAccessible(capsule, 8, any()) } returns Unit
 		every { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) } returns true
 		every { openRepository.findByTimeCapsuleIdAndMemberId(1, 8) } returns Optional.empty()
-		every { passwordEncoder.matches("pw", "hash") } returns true
 		every { memberRepository.findById(8) } returns Optional.of(opener)
 		every { openRepository.save(any()) } answers { CapsuleOpen(capsule, opener, LocalDateTime.now(), id = 2) }
 		every { recipientRepository.findByTimeCapsuleIdAndMemberId(1, 8) } returns Optional.empty()
 		every { mediaRepository.findAllByTimeCapsuleId(1) } returns emptyList()
 
-		service.execute(8, 1, OpenCapsuleRequest(37.5, 127.0, password = "pw"))
+		service.execute(8, 1, OpenCapsuleRequest(37.5, 127.0))
 
 		verify(exactly = 1) {
 			notificationPublisher.publish(member, NotificationType.CAPSULE_OPENED, any(), any(), 1L, NotificationTargetType.CAPSULE)
@@ -140,13 +136,12 @@ class OpenCapsuleServiceTest {
 		every { accessPolicy.requireAccessible(capsule, 7, any()) } returns Unit
 		every { capsuleRepository.isWithinOpeningRadius(1, 37.5, 127.0) } returns true
 		every { openRepository.findByTimeCapsuleIdAndMemberId(1, 7) } returns Optional.empty()
-		every { passwordEncoder.matches("pw", "hash") } returns true
 		every { memberRepository.findById(7) } returns Optional.of(member)
 		every { openRepository.save(any()) } answers { CapsuleOpen(capsule, member, LocalDateTime.now(), id = 3) }
 		every { recipientRepository.findByTimeCapsuleIdAndMemberId(1, 7) } returns Optional.empty()
 		every { mediaRepository.findAllByTimeCapsuleId(1) } returns emptyList()
 
-		service.execute(7, 1, OpenCapsuleRequest(37.5, 127.0, password = "pw"))
+		service.execute(7, 1, OpenCapsuleRequest(37.5, 127.0))
 
 		verify(exactly = 0) { notificationPublisher.publish(any(), any(), any(), any(), any(), any()) }
 	}
@@ -155,7 +150,7 @@ class OpenCapsuleServiceTest {
 
 	private val e2eCapsule = TimeCapsule(
 		member = member, name = "e2e", content = "CLIENT-CIPHERTEXT", visibility = CapsuleVisibility.PRIVATE,
-		lockType = CapsuleLockType.PASSWORD, passwordHash = "hash",
+		lockType = CapsuleLockType.PASSWORD,
 		location = GeometryFactory().createPoint(Coordinate(127.0, 37.5)), openRadiusMeter = 100,
 		openAt = LocalDateTime.now().minusDays(1),
 		encryptionMode = CapsuleEncryptionMode.CLIENT_E2E, keyThreshold = 2, id = 2,

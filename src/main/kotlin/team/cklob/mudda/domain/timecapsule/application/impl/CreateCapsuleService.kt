@@ -3,7 +3,6 @@ package team.cklob.mudda.domain.timecapsule.application.impl
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.GeometryFactory
 import org.locationtech.jts.geom.PrecisionModel
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import team.cklob.mudda.domain.block.domain.repository.BlockRepository
@@ -22,7 +21,6 @@ import team.cklob.mudda.domain.timecapsule.domain.repository.CapsuleRecipientRep
 import team.cklob.mudda.domain.timecapsule.domain.repository.KeyShareRepository
 import team.cklob.mudda.domain.timecapsule.domain.repository.TimeCapsuleRepository
 import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleEncryptionMode
-import team.cklob.mudda.domain.timecapsule.domain.type.CapsuleLockType
 import team.cklob.mudda.domain.timecapsule.presentation.request.CreateCapsuleRequest
 import team.cklob.mudda.domain.timecapsule.presentation.response.CreateCapsuleResponse
 import team.cklob.mudda.global.exception.BusinessException
@@ -37,7 +35,6 @@ class CreateCapsuleService(
 	private val friendRepository: FriendRepository,
 	private val blockRepository: BlockRepository,
 	private val mediaRepository: MediaRepository,
-	private val passwordEncoder: PasswordEncoder,
 	private val properties: CapsuleProperties,
 	private val notificationPublisher: NotificationPublisher,
 	private val keyShareRepository: KeyShareRepository,
@@ -73,9 +70,9 @@ class CreateCapsuleService(
 				keyThreshold = request.keyThreshold,
 				visibility = request.visibility,
 				lockType = request.lockType,
-				passwordHash = request.password?.let(passwordEncoder::encode),
+				// question is display text only; the answer never reaches the server, so there is nothing to
+				// hash and no password_hash/answer_hash to write.
 				question = request.question?.trim(),
-				answerHash = request.answer?.trim()?.lowercase()?.let(passwordEncoder::encode),
 				location = location,
 				openRadiusMeter = properties.openRadiusMeter,
 				openAt = request.openAt,
@@ -114,11 +111,8 @@ class CreateCapsuleService(
 		if (request.openAt.isBefore(now) || request.expiredAt?.let { !it.isAfter(request.openAt) || it.isAfter(request.openAt.plusYears(properties.maxExpirationYears)) } == true) {
 			throw BusinessException(ErrorCode.INVALID_INPUT)
 		}
-		val validLock = when (request.lockType) {
-			CapsuleLockType.NONE -> request.password == null && request.question == null && request.answer == null
-			CapsuleLockType.PASSWORD -> !request.password.isNullOrBlank() && request.question == null && request.answer == null
-			CapsuleLockType.QUESTION -> request.password == null && !request.question.isNullOrBlank() && !request.answer.isNullOrBlank()
-		}
-		if (!validLock) throw BusinessException(ErrorCode.INVALID_INPUT)
+		// Lock field consistency moved to CapsuleEncryptionPolicy: with the secret no longer sent to the
+		// server, the only lock field left to check is the question text, and that check belongs next to the
+		// rest of the encryption contract.
 	}
 }

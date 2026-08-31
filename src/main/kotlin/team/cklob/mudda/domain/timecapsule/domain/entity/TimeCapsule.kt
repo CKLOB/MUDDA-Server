@@ -56,18 +56,19 @@ class TimeCapsule(
 	@Column(nullable = false, length = 20)
 	val visibility: CapsuleVisibility,
 
+	// The lock is enforced by the client's ability to unwrap a key share, not by the server. lockType and
+	// question are kept only so the client knows what to prompt for.
+	//
+	// password_hash and answer_hash are intentionally no longer mapped: storing a hash of the lock secret
+	// bought nothing once verification moved to the client, and it left an offline-guessable artefact next
+	// to the wrapped share it protects. The columns stay in place (nullable, unwritten) so a previous blue
+	// container keeps working during a deployment; drop them in a later migration.
 	@Enumerated(EnumType.STRING)
 	@Column(name = "lock_type", nullable = false, length = 20)
 	val lockType: CapsuleLockType,
 
-	@Column(name = "password_hash", length = 255)
-	val passwordHash: String? = null,
-
 	@Column(length = 255)
 	val question: String? = null,
-
-	@Column(name = "answer_hash", length = 255)
-	val answerHash: String? = null,
 
 	@Column(nullable = false, columnDefinition = "geometry(Point,4326)")
 	val location: Point,

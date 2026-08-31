@@ -3,7 +3,6 @@ package team.cklob.mudda.domain.timecapsule.application.impl
 import org.locationtech.jts.geom.Coordinate
 import org.locationtech.jts.geom.GeometryFactory
 import org.locationtech.jts.geom.PrecisionModel
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import team.cklob.mudda.domain.media.application.MediaStorage
@@ -41,7 +40,6 @@ class OpenCapsuleService(
 	private val memberRepository: MemberRepository,
 	private val mediaRepository: MediaRepository,
 	private val mediaStorage: MediaStorage,
-	private val passwordEncoder: PasswordEncoder,
 	private val accessPolicy: CapsuleAccessPolicy,
 	private val notificationPublisher: NotificationPublisher,
 	private val feedBroadcaster: FeedBroadcaster,
@@ -60,7 +58,12 @@ class OpenCapsuleService(
 		}
 		var opened = openRepository.findByTimeCapsuleIdAndMemberId(capsuleId, memberId).orElse(null)
 		if (opened == null) {
-			verifyLock(capsule.lockType, capsule.passwordHash, capsule.answerHash, request)
+			// No lock check here on purpose. The server verifies location and access only; proving knowledge
+			// of the lock secret happens on the client, when it unwraps its key share. Verifying server-side
+			// would mean receiving the secret in plaintext, and a server that has seen it can derive the same
+			// wrapping key and open every capsule it stores -- which is exactly the guarantee CLIENT_E2E is
+			// supposed to provide. A wrong secret fails the share's GCM tag check instead, which is strictly
+			// stronger than a bcrypt comparison: it cannot be bypassed by anything the server does.
 			val member = memberRepository.findById(memberId).orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
 			val openLocation = GeometryFactory(PrecisionModel(), 4326).createPoint(Coordinate(request.longitude, request.latitude))
 			opened = openRepository.save(CapsuleOpen(capsule, member, now, openLocation))
@@ -115,14 +118,5 @@ class OpenCapsuleService(
 		if (capsule.visibility == CapsuleVisibility.PUBLIC) {
 			feedBroadcaster.broadcast(FeedResponse.from(opened))
 		}
-	}
-
-	private fun verifyLock(lockType: CapsuleLockType, passwordHash: String?, answerHash: String?, request: OpenCapsuleRequest) {
-		val matches = when (lockType) {
-			CapsuleLockType.NONE -> true
-			CapsuleLockType.PASSWORD -> request.password?.let { passwordEncoder.matches(it, passwordHash) } == true
-			CapsuleLockType.QUESTION -> request.answer?.trim()?.lowercase()?.let { passwordEncoder.matches(it, answerHash) } == true
-		}
-		if (!matches) throw CapsuleException(ErrorCode.CAPSULE_LOCK_FAILED)
 	}
 }

@@ -75,15 +75,16 @@ data class CreateCapsuleRequest(
 	@Schema(description = "잠금 유형", example = "NONE")
 	val lockType: CapsuleLockType,
 
-	@Schema(description = "lockType이 PASSWORD일 때의 비밀번호", nullable = true)
-	val password: String? = null,
-
+	// The lock secret is deliberately absent from this request. It is the one input the server must never
+	// learn: the client derives the share-wrapping key from it locally, and a server that received it
+	// could derive the same key, unwrap the share it stores, and reach the threshold on its own.
 	@field:Size(max = 255)
-	@Schema(description = "lockType이 QUESTION일 때의 질문", example = "우리가 처음 만난 곳은?", nullable = true)
+	@Schema(
+		description = "lockType이 QUESTION일 때 열람자에게 보여줄 질문. 정답 자체는 서버로 전송하지 않습니다.",
+		example = "우리가 처음 만난 곳은?",
+		nullable = true,
+	)
 	val question: String? = null,
-
-	@Schema(description = "lockType이 QUESTION일 때의 정답. 대소문자와 앞뒤 공백은 무시됩니다.", nullable = true)
-	val answer: String? = null,
 
 	@Schema(description = "캡슐을 받을 회원 ID 목록. 친구 관계이면서 차단되지 않은 회원이어야 합니다.", example = "[2, 3]")
 	val recipientIds: Set<Long> = emptySet(),
@@ -92,7 +93,11 @@ data class CreateCapsuleRequest(
 	val mediaIds: Set<Long> = emptySet(),
 )
 
-@Schema(description = "캡슐 열람 요청. 좌표는 서버에서 PostGIS로 재검증합니다.")
+@Schema(
+	description = "캡슐 열람 요청. 좌표는 서버에서 PostGIS로 재검증합니다.\n\n" +
+		"잠금 비밀은 보내지 않습니다. 잠금 검증은 서버의 해시 비교가 아니라, 클라이언트가 반환받은 조각을 " +
+		"자신이 아는 비밀로 풀어내는 과정에서 암호학적으로 이루어집니다. 비밀이 틀리면 GCM 인증 태그 검증이 실패합니다.",
+)
 data class OpenCapsuleRequest(
 	@field:DecimalMin("-90.0") @field:DecimalMax("90.0")
 	@Schema(description = "현재 위도", example = "37.5")
@@ -101,12 +106,6 @@ data class OpenCapsuleRequest(
 	@field:DecimalMin("-180.0") @field:DecimalMax("180.0")
 	@Schema(description = "현재 경도", example = "127.0")
 	val longitude: Double,
-
-	@Schema(description = "lockType이 PASSWORD인 캡슐의 비밀번호. 최초 열람 시에만 검증합니다.", nullable = true)
-	val password: String? = null,
-
-	@Schema(description = "lockType이 QUESTION인 캡슐의 정답. 최초 열람 시에만 검증합니다.", nullable = true)
-	val answer: String? = null,
 )
 
 @Schema(description = "방명록 작성 요청")
