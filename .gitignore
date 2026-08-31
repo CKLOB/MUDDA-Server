@@ -11,3 +11,8 @@ out/
 
 ### ENV ###
 .env
+.env.*
+!.env.example
+!.env.production.example
+secrets/
+*service-account*.json
