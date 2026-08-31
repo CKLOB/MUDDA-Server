@@ -1,0 +1,67 @@
+name: Close Issues Linked from Develop PRs
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+concurrency:
+  group: close-develop-issues-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  close-linked-issues:
+    if: >-
+      github.repository == 'CKLOB/MUDDA-Server' &&
+      github.event.pull_request.base.ref == 'develop' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+
+    steps:
+      # Always execute the trusted automation code from the default branch.
+      # Never checkout or execute the closed PR's head branch.
+      - name: Checkout automation code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Close linked issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const path = require('node:path');
+            const {
+              closeLinkedIssues,
+              writeSummary,
+            } = require(
+              path.join(
+                process.env.GITHUB_WORKSPACE,
+                '.github/scripts/close-develop-issues.js',
+              ),
+            );
+
+            const result = await closeLinkedIssues({
+              github,
+              repository: context.payload.repository,
+              pullRequest: context.payload.pull_request,
+            });
+
+            await writeSummary(core, result);
+
+            if (result.failures.length > 0) {
+              core.setFailed(
+                `Failed to process ${result.failures.length} linked issue(s).`,
+              );
+            }
