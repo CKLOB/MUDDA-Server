@@ -1,0 +1,12 @@
+[Unit]
+Description=Run MUDDA runtime alert check every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=30s
+Persistent=true
+Unit=mudda-runtime-alert.service
+
+[Install]
+WantedBy=timers.target
