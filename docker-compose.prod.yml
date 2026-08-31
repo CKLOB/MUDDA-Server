@@ -11,7 +11,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: mudda-app:prod
+    image: ${APP_IMAGE:-mudda-app:prod}
     env_file:
       - .env.production
     environment:
