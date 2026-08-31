@@ -1,0 +1,101 @@
+name: mudda-prod
+
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mudda-app:prod
+    env_file:
+      - .env.production
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: "8080"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      TZ: Asia/Seoul
+    ports:
+      - "8080:8080"
+    volumes:
+      - type: bind
+        source: ${FIREBASE_CREDENTIALS_DIR:-./secrets}
+        target: /run/secrets
+        read_only: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --show-error http://127.0.0.1:8080/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 1024m
+    cpus: 1.00
+    logging: *default-logging
+    networks:
+      - backend
+
+  postgres:
+    image: postgis/postgis:16-3.5-alpine
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: ${DB_NAME:?DB_NAME is required}
+      POSTGRES_USER: ${DB_USERNAME:?DB_USERNAME is required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - mudda-prod-postgres-data:/var/lib/postgresql/data
+      - ./src/main/resources/db/init/001_enable_postgis.sql:/docker-entrypoint-initdb.d/001_enable_postgis.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 768m
+    cpus: 0.75
+    logging: *default-logging
+    networks:
+      - backend
+
+  redis:
+    image: redis:7.4-alpine
+    platform: linux/amd64
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - mudda-prod-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+    stop_grace_period: 15s
+    mem_limit: 256m
+    cpus: 0.25
+    logging: *default-logging
+    networks:
+      - backend
+
+volumes:
+  mudda-prod-postgres-data:
+  mudda-prod-redis-data:
+
+networks:
+  backend:
+    internal: true

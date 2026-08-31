@@ -26,7 +26,7 @@ class SecurityConfig(private val objectMapper: ObjectMapper) {
         accessTokenBlacklist: AccessTokenBlacklist,
     ): SecurityFilterChain = http
         .csrf { it.disable() }.sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-        .authorizeHttpRequests { it.requestMatchers("/api/v1/auth/oauth/**", "/api/v1/auth/reissue", "/api/v1/maps/**", "/actuator/health", "/swagger-ui/**", "/v3/api-docs/**").permitAll().anyRequest().authenticated() }
+        .authorizeHttpRequests { it.requestMatchers("/api/v1/auth/oauth/**", "/api/v1/auth/reissue", "/api/v1/maps/**", "/actuator/health", "/actuator/health/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll().anyRequest().authenticated() }
         .exceptionHandling { it.authenticationEntryPoint { _, response, _ ->
             response.status = HttpStatus.UNAUTHORIZED.value()
             response.contentType = "application/json"

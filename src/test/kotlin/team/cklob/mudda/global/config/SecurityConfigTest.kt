@@ -28,6 +28,7 @@ class SecurityConfigTest(@Autowired private val mockMvc: MockMvc, @Autowired pri
         every { accessTokenBlacklist.isBlacklisted(any()) } returns false
         every { accessTokenBlacklist.isRevoked(any(), any()) } returns false
         mockMvc.perform(get("/api/v1/maps/ping")).andExpect(status().isOk)
+        mockMvc.perform(get("/actuator/health/readiness")).andExpect(status().isOk)
         mockMvc.perform(get("/api/v1/private/ping")).andExpect(status().isUnauthorized)
         mockMvc.perform(get("/api/v1/private/ping").header("Authorization", "Bearer ${jwtTokenProvider.createAccessToken(1)}")).andExpect(status().isOk)
     }
@@ -40,5 +41,6 @@ class SecurityConfigTest(@Autowired private val mockMvc: MockMvc, @Autowired pri
 @RestController
 class SecurityTestController {
     @GetMapping("/api/v1/maps/ping") fun public() = "ok"
+    @GetMapping("/actuator/health/readiness") fun readiness() = "ok"
     @GetMapping("/api/v1/private/ping") fun private() = "ok"
 }

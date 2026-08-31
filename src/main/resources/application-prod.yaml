@@ -1,0 +1,91 @@
+spring:
+  docker:
+    compose:
+      enabled: false
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:5000}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY}
+        secret-key: ${AWS_SECRET_KEY}
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis
+
+mudda:
+  crypto:
+    master-key: ${MUDDA_MASTER_KEY}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:1209600000}
+
+media:
+  storage:
+    bucket: ${MEDIA_STORAGE_BUCKET}
+    upload-url-expiration: ${MEDIA_UPLOAD_URL_EXPIRATION:10m}
+    access-url-expiration: ${MEDIA_ACCESS_URL_EXPIRATION:5m}
+    max-image-size: ${MEDIA_MAX_IMAGE_SIZE:10485760}
+    max-voice-size: ${MEDIA_MAX_VOICE_SIZE:20971520}
+    max-video-size: ${MEDIA_MAX_VIDEO_SIZE:104857600}
+    pending-retention: ${MEDIA_PENDING_RETENTION:1d}
+  cleanup:
+    cron: ${MEDIA_CLEANUP_CRON:0 0 4 * * *}
+
+capsule:
+  key-share-cleanup:
+    cron: ${CAPSULE_KEY_SHARE_CLEANUP_CRON:0 30 4 * * *}
+  open-radius-meter: ${CAPSULE_OPEN_RADIUS_METER:100}
+  max-active-per-member: ${CAPSULE_MAX_ACTIVE_PER_MEMBER:100}
+  max-expiration-years: ${CAPSULE_MAX_EXPIRATION_YEARS:10}
+  max-nearby-radius-meter: ${CAPSULE_MAX_NEARBY_RADIUS_METER:5000}
+
+fcm:
+  enabled: ${FCM_ENABLED:false}
+  credentials: ${FCM_CREDENTIALS:}
+
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
